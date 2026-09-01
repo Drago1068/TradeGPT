@@ -1,0 +1,15 @@
+{
+  "version": "3.0.0",
+  "universe": "US_EQUITIES",
+  "gates": {
+    "min_price": 3.0,
+    "min_avg_volume_30d": 500000,
+    "min_avg_dollar_volume_30d": 5000000
+  },
+  "exclude": {
+    "etfs": false,
+    "leveraged_etfs": true,
+    "inverse_etfs": true,
+    "otc": true
+  }
+}
