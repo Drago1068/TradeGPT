@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tradegpt/candidate.schema.json",
+  "title": "TradeGPT Candidate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["candidate_id", "ticker", "strategy", "state", "data_verified", "sources"],
+  "properties": {
+    "candidate_id": {"type": "string", "minLength": 1},
+    "ticker": {"type": "string", "pattern": "^[A-Z.]{1,10}$"},
+    "strategy": {"enum": ["A_0DTE", "B_SHORT_OPTIONS", "C_STOCK", "D_PREBREAKOUT"]},
+    "state": {"enum": ["DISCOVERED", "WATCH", "ARMED", "TRIGGERED", "TRADE_READY", "ENTER", "MANAGE", "EXIT", "INVALIDATED", "REJECTED"]},
+    "data_verified": {"type": "boolean"},
+    "sources": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "catalyst_score": {"type": "number", "minimum": 0, "maximum": 1},
+    "technical_score": {"type": "number", "minimum": 0, "maximum": 1},
+    "relative_strength_score": {"type": "number", "minimum": 0, "maximum": 1},
+    "liquidity_score": {"type": "number", "minimum": 0, "maximum": 1},
+    "entry": {"type": "number", "exclusiveMinimum": 0},
+    "stop": {"type": "number", "exclusiveMinimum": 0},
+    "target": {"type": "number", "exclusiveMinimum": 0}
+  }
+}
