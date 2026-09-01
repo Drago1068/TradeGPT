@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TradeGPT Model Evaluation",
+  "type": "object",
+  "required": ["evaluation_id", "model_id", "task", "candidate_id", "evaluated_at"],
+  "properties": {
+    "evaluation_id": {"type": "string"},
+    "model_id": {"type": "string"},
+    "task": {"type": "string"},
+    "candidate_id": {"type": "string"},
+    "evaluated_at": {"type": "string", "format": "date-time"},
+    "confidence": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+    "thesis": {"type": "string"},
+    "evidence": {"type": "array", "items": {"type": "string"}},
+    "failure_conditions": {"type": "array", "items": {"type": "string"}},
+    "predicted_direction": {"enum": ["LONG", "SHORT", "NEUTRAL", "UNKNOWN"]},
+    "outcome": {"type": ["string", "null"]},
+    "score": {"type": ["number", "null"]}
+  }
+}
