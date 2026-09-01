@@ -1,0 +1,21 @@
+{
+  "version": "3.0.0",
+  "architecture": "adaptive",
+  "policy": {
+    "no_hardcoded_primary_model": true,
+    "models_are_task_specialists": true,
+    "selection_basis": ["capability", "latency", "cost", "benchmark_score", "forward_test_score"],
+    "minimum_observations_before_promotion": 30,
+    "challenger_required_for_promotion": true
+  },
+  "model_registry": [],
+  "tasks": [
+    "catalyst_analysis",
+    "news_synthesis",
+    "technical_analysis",
+    "relative_strength_analysis",
+    "options_analysis",
+    "bear_case_audit",
+    "trade_thesis"
+  ]
+}
