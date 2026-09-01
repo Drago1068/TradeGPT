@@ -1,0 +1,56 @@
+{
+  "version": "3.0",
+  "risk": {
+    "maxRiskPerTradePct": 1.0,
+    "maxPortfolioHeatPct": 5.0,
+    "minRewardRisk": 2.0,
+    "dailyLossLimitPct": 3.0
+  },
+  "liquidity": {
+    "minPrice": 3.0,
+    "minAdvShares30d": 500000,
+    "minAdvDollars30d": 5000000
+  },
+  "strategies": {
+    "zeroDte": {
+      "enabled": true,
+      "underlyings": ["SPY", "QQQ", "IWM"],
+      "minDelta": 0.60,
+      "windowsEt": [["09:45", "11:30"], ["14:00", "15:30"]],
+      "flattenByEt": "15:45"
+    },
+    "shortDurationOptions": {
+      "enabled": true,
+      "dte": [14, 45],
+      "delta": [0.50, 0.70],
+      "maxIvRankForLongOptions": 50,
+      "stockPreferredAtIvRank": 80
+    },
+    "stocks": {
+      "enabled": true,
+      "minRvol": 2.0
+    },
+    "preBreakout": {
+      "enabled": true,
+      "maxTenDayRangePct": 5.0,
+      "minAtrContractionDays": 5,
+      "relativeStrengthBenchmark": "SPY"
+    }
+  },
+  "states": [
+    "DISCOVERED",
+    "WATCH",
+    "ARMED",
+    "TRIGGERED",
+    "TRADE_READY",
+    "ENTER",
+    "MANAGE",
+    "EXIT",
+    "INVALIDATED",
+    "REJECTED"
+  ],
+  "dataIntegrity": {
+    "requireVerifiedData": true,
+    "invalidStatus": "DATA NOT VERIFIED"
+  }
+}
