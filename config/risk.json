@@ -1,0 +1,16 @@
+{
+  "version": "3.0.0",
+  "account_assumption": {
+    "starting_equity": 2000
+  },
+  "risk": {
+    "max_account_risk_per_trade_pct": 1.0,
+    "max_portfolio_heat_pct": 5.0,
+    "daily_loss_limit_pct": 3.0,
+    "minimum_reward_risk": 2.0
+  },
+  "data_policy": {
+    "require_verified_market_data": true,
+    "allow_trade_ready_when_data_unverified": false
+  }
+}
