@@ -1,0 +1,32 @@
+{
+  "version": "3.0.0",
+  "strategies": {
+    "0DTE": {
+      "enabled": true,
+      "universe": ["SPY", "QQQ", "IWM"],
+      "delta_min": 0.60,
+      "entry_windows_et": [["09:45", "11:30"], ["14:00", "15:30"]],
+      "no_hold_after_et": "15:45"
+    },
+    "SHORT_DURATION_OPTIONS": {
+      "enabled": true,
+      "dte_min": 14,
+      "dte_max": 45,
+      "delta_min": 0.50,
+      "delta_max": 0.70,
+      "iv_rank_buy_max": 50,
+      "iv_rank_stock_switch_above": 80
+    },
+    "STOCKS": {
+      "enabled": true,
+      "breakout_rvol_min": 2.0
+    },
+    "PRE_BREAKOUT": {
+      "enabled": true,
+      "range_days": 10,
+      "range_max_pct": 5.0,
+      "atr_contraction_days_min": 5,
+      "relative_strength_required": true
+    }
+  }
+}
