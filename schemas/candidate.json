@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TradeGPT Candidate",
+  "type": "object",
+  "required": ["candidate_id", "ticker", "discovered_at", "state", "source_attribution", "data_verified"],
+  "properties": {
+    "candidate_id": {"type": "string"},
+    "ticker": {"type": "string"},
+    "discovered_at": {"type": "string", "format": "date-time"},
+    "state": {"enum": ["DISCOVERED", "WATCH", "ARMED", "TRIGGERED", "TRADE_READY", "ENTER", "MANAGE", "EXIT", "INVALIDATED", "REJECTED"]},
+    "price": {"type": ["number", "null"]},
+    "rvol": {"type": ["number", "null"]},
+    "relative_strength": {"type": ["number", "null"]},
+    "catalyst_score": {"type": ["number", "null"]},
+    "technical_score": {"type": ["number", "null"]},
+    "liquidity_score": {"type": ["number", "null"]},
+    "risk_score": {"type": ["number", "null"]},
+    "data_verified": {"type": "boolean"},
+    "source_attribution": {"type": "array", "items": {"type": "string"}},
+    "research": {"type": "array", "items": {"type": "object"}},
+    "entry": {"type": ["number", "null"]},
+    "stop": {"type": ["number", "null"]},
+    "target": {"type": ["number", "null"]},
+    "reward_risk": {"type": ["number", "null"]}
+  }
+}
