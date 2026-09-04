@@ -1,0 +1,36 @@
+app:
+  name: TradeGPT V2
+  mode: research
+  live_execution_enabled: false
+
+account:
+  equity: 2905.00
+  currency: USD
+
+risk:
+  max_trade_risk_pct: 0.01
+  exceptional_trade_risk_pct: 0.02
+  max_portfolio_heat_pct: 0.05
+  daily_loss_limit_pct: 0.03
+  min_reward_risk: 2.0
+
+universe:
+  price_floor: 3.00
+  min_adv_shares: 500000
+  min_adv_dollars: 5000000
+
+scans:
+  - id: daily-discovery
+    label: Daily Sniper Discovery
+    time_et: "08:00"
+  - id: primary-qualification
+    label: V2 Qualification
+    time_et: "10:15"
+  - id: midday-discovery
+    label: Midday Second-Wave Discovery
+    time_et: "12:30"
+
+execution:
+  options_enabled: false
+  zero_dte_enabled: false
+  broker_orders_enabled: false
