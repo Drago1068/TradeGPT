@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from .models import RiskDecision
 
 
@@ -13,9 +15,6 @@ class RiskPolicy:
     min_price: float = 3.0
     min_adv_shares: int = 500_000
     min_adv_dollars: float = 5_000_000
-
-
-from dataclasses import dataclass
 
 
 def evaluate_trade(
