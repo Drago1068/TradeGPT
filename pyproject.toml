@@ -1,0 +1,14 @@
+[project]
+name = "tradegpt"
+version = "2.0.0a1"
+description = "TradeGPT V2 deterministic stock-first trading decision-support engine"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest>=8,<9"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"
