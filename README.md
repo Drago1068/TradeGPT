@@ -1,64 +1,85 @@
-# TradeGPT V3 — Adaptive Intelligence Engine
+# TradeGPT V2 — Stock-First Decision Engine
 
-TradeGPT V3 is an automated market-discovery and research architecture designed to eliminate manual discovery and copy/paste workflows while preserving independent model attribution, empirical benchmarking, and risk-first decision gates.
+TradeGPT V2 is a deterministic, risk-first market discovery and decision-support system. It is designed to surface asymmetric stock opportunities early while keeping execution gates strict, auditable, and data-verified.
 
-## Architecture
+## Core principles
 
-1. Automated quantitative/event discovery
-2. Candidate Union Ledger
-3. Adaptive Intelligence Layer
-4. Task-specific model routing
-5. Empirical model benchmarking
-6. Adversarial research/audit
-7. Meta Engine risk and quality gates
-8. DISCOVERED → WATCH → ARMED → TRIGGERED → TRADE READY → ENTER/MANAGE → EXIT / INVALIDATED / REJECTED state machine
-9. Forward-test and discovery-lead-time measurement
-10. Scheduled market-session orchestration and observability
+- Stock-first; options and 0DTE remain disabled during the initial production phase.
+- Discovery is broad; execution is ruthless.
+- No fabricated or silently substituted market data.
+- No automatic broker orders.
+- No stop widening or averaging down.
+- Every important candidate state change is auditable.
 
-## Strategy Engines
+## Candidate lifecycle
 
-### A — 0DTE Options
-- SPY, QQQ, IWM only
-- Delta > 0.60 ITM
-- Primary windows: 09:45–11:30 ET and 14:00–15:30 ET
-- Never hold through 15:45 ET
+`DISCOVERED → WATCH → ARMED → TRIGGERED → TRADE_READY → ENTERED → MANAGE → EXITED`
 
-### B — Short-Duration Options
-- 14–45 DTE
-- Delta 0.50–0.70
-- Prefer long options when IV Rank < 50%
-- When IV Rank > 80%, prefer stock structures
+Terminal alternatives are `INVALIDATED`, `REJECTED`, and `EXPIRED`.
 
-### C — Stocks
-- Momentum / swing
-- Breakout + consolidation
-- RVOL > 2.0
+## Deterministic scoring
 
-### D — Pre-Breakout Discovery
-- 10-day price range < 5%
-- ATR contracting for 5+ days
-- Relative strength rising versus SPY
+- Catalyst: 30%
+- Technical structure: 30%
+- Relative strength: 20%
+- Liquidity: 20%
 
-## Risk Controls
+Score bands:
 
-- Maximum account risk per trade: 1.0%
-- Maximum portfolio heat: 5.0%
+- 90–100: A+
+- 82–89.99: A
+- 74–81.99: WATCH
+- 65–73.99: DISCOVERY
+- Below 65: PASS
+
+A score never bypasses hard execution gates.
+
+## Risk controls
+
+- Normal maximum trade risk: 1% of equity
+- Exceptional A+ maximum: 2%
+- Maximum portfolio heat: 5%
+- Daily loss limit: 3%
 - Minimum reward/risk: 2.0R
-- Daily loss limit: 3.0%
-- Liquidity gates: price > $3, 30-day ADV > 500k shares, and 30-day ADV dollar value > $5M
+- Price floor: $3
+- Minimum 30-day ADV: 500,000 shares and $5M dollar volume
 
-## Data Integrity
+Position size is calculated from the approved risk budget and stop distance.
 
-Production decisions require verified market data. Missing or stale L1/L2, OPRA, index, EOD, VWAP/AVWAP, or RVOL inputs must be explicitly flagged as `DATA NOT VERIFIED` rather than silently substituted.
+## Runtime
 
-## Model Independence
+The backend is a FastAPI service with PostgreSQL persistence through SQLAlchemy. Docker Compose provides the application and PostgreSQL services. The API currently exposes health, system status, and candidate CRUD/read endpoints.
 
-AI models are interchangeable research workers. No specific model—including Qwen—is a required architectural dependency. Models are evaluated by task and observed forward performance rather than arbitrary preference.
+### Development
 
-## Development Status
+```bash
+pip install -e '.[test]'
+pytest
+uvicorn tradegpt.app:app --reload --port 8080
+```
 
-Phase 1 foundation is initialized. The next implementation layer establishes repository structure, configuration, schemas, deterministic risk gates, scan orchestration, model registry/router interfaces, and automated acceptance tests before live execution is enabled.
+### Docker
 
-## Safety
+Set `POSTGRES_PASSWORD` outside source control, then run:
 
-TradeGPT is research and decision-support software. It does not guarantee returns and must not bypass data verification, liquidity, position sizing, reward/risk, portfolio-risk, or execution gates.
+```bash
+docker compose up -d --build
+```
+
+The service is intentionally not configured for broker execution.
+
+## Scheduled scans
+
+Production schedule is limited to:
+
+- 08:00 ET — Daily Sniper Discovery
+- 10:15 ET — V2 Qualification
+- 12:30 ET — Midday Second-Wave Discovery
+
+## Data integrity
+
+Decision-critical inputs must be timestamped and verified. Missing or stale inputs must produce `DATA_NOT_VERIFIED` and block `TRADE_READY`.
+
+## Development status
+
+The deterministic core, state machine, scoring gates, audit ledger, persistent candidate store, FastAPI runtime, Docker foundation, and automated tests are implemented. Market-data adapters, scan orchestration, forward-test/learning ledger, mobile PWA, and NAS deployment validation remain before production readiness.
