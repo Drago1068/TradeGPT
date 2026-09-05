@@ -13,7 +13,8 @@ class CandidateLifecycle:
 
     def move(self, candidate: Candidate, new_state: CandidateState, *, reason: str | None = None) -> Candidate:
         old_state = candidate.state
-        updated = transition(candidate, new_state)
+        transition(old_state, new_state)
+        candidate.state = new_state
         self.ledger.record(
             "STATE_TRANSITION",
             candidate.symbol,
@@ -22,4 +23,4 @@ class CandidateLifecycle:
             to_state=new_state.value,
             reason=reason,
         )
-        return updated
+        return candidate
