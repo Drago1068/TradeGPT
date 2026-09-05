@@ -4,11 +4,15 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException, Query
 
-from .api import CandidateStore, candidate_payload, health_payload
+from .api import candidate_payload, health_payload
+from .db import init_db, make_engine
 from .models import Candidate, CandidateState
+from .persistence import PersistentCandidateStore
 
 app = FastAPI(title="TradeGPT V2", version="2.0.0-alpha.1")
-store = CandidateStore()
+engine = make_engine()
+init_db(engine)
+store = PersistentCandidateStore()
 
 
 @app.get("/health")
