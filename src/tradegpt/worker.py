@@ -4,13 +4,13 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable, Protocol
 
-from .scan_audit import ScanRun
-from .scheduler import ScanSchedule, scheduled_datetime
+from .scheduler import ScanSchedule
 from .scheduler_service import SchedulerService
+from .scan_executor import ScanExecutionResult
 
 
 class ScanExecutor(Protocol):
-    def execute(self, scan_id: str, scheduled_at: datetime) -> None: ...
+    def execute(self, scan_id: str, scheduled_at: datetime) -> ScanExecutionResult | None: ...
 
 
 @dataclass(frozen=True)
@@ -31,7 +31,7 @@ class SchedulerWorker:
     audit state.
     """
 
-    def __init__(self, scheduler: SchedulerService, executor: ScanExecutor | Callable[[str, datetime], None]):
+    def __init__(self, scheduler: SchedulerService, executor: ScanExecutor | Callable[[str, datetime], ScanExecutionResult | None]):
         self.scheduler = scheduler
         self.executor = executor
 
@@ -47,11 +47,16 @@ class SchedulerWorker:
         run = self.scheduler.start(schedule.id, scheduled_at, started_at)
         try:
             if hasattr(self.executor, "execute"):
-                self.executor.execute(schedule.id, scheduled_at)  # type: ignore[attr-defined]
+                result = self.executor.execute(schedule.id, scheduled_at)  # type: ignore[attr-defined]
             else:
-                self.executor(schedule.id, scheduled_at)  # type: ignore[operator]
+                result = self.executor(schedule.id, scheduled_at)  # type: ignore[operator]
         except Exception as exc:
             failed = self.scheduler.fail(run, f"{type(exc).__name__}: {exc}")
             return WorkerResult(failed.scan_id, failed.scheduled_at, failed.status, failed.error)
+
+        if isinstance(result, ScanExecutionResult) and result.status != "COMPLETED":
+            terminal = self.scheduler.record_non_success(run, result.status, result.processed)
+            return WorkerResult(terminal.scan_id, terminal.scheduled_at, terminal.status)
+
         completed = self.scheduler.complete(run)
         return WorkerResult(completed.scan_id, completed.scheduled_at, completed.status)
