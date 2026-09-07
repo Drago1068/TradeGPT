@@ -18,6 +18,11 @@ class ConfiguredMarketDataProvider:
         self.provider_name = provider_name or os.getenv("MARKET_DATA_PROVIDER", "none")
         self.fetcher = fetcher
 
+    @property
+    def is_configured(self) -> bool:
+        """Whether a real market-data fetch boundary has been supplied."""
+        return callable(self.fetcher)
+
     def snapshot(self, symbol: str) -> QuoteSnapshot:
         symbol = symbol.upper()
         if self.fetcher is None:
