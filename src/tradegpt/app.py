@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
 
-from .api import candidate_payload, health_payload
+from .api import candidate_payload, health_payload, readiness_payload
 from .composition import build_runtime
 from .forward_learning import evaluate_learning_record
 from .ledger import AuditEvent, AuditLedger
@@ -161,6 +161,18 @@ def _learning_payload(record_id: int, record: LearningRecord) -> dict[str, objec
 @app.get("/health")
 def health() -> dict[str, object]:
     return health_payload()
+
+
+@app.get("/ready")
+def ready() -> dict[str, object]:
+    payload, is_ready = readiness_payload(
+        engine=runtime.engine,
+        market_data_configured=runtime.market_data_configured,
+        scan_plan_configured=runtime.scan_plan_configured,
+    )
+    if not is_ready:
+        raise HTTPException(status_code=503, detail=payload)
+    return payload
 
 
 @app.get("/api/v1/candidates")
