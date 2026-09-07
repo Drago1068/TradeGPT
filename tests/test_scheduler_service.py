@@ -41,7 +41,7 @@ def test_service_run_lifecycle_is_durable_and_removes_scan_from_due():
     assert [s.id for s in service.due(now)] == ["daily-discovery"]
     run = service.start("daily-discovery", et(2026, 9, 7, 8, 0), now)
     service.complete(run, et(2026, 9, 7, 8, 2))
-    assert [s.id for s in service.due(now)] == ["primary-qualification"]
+    assert service.due(now) == ()
 
 
 def test_service_failure_counts_as_run_for_duplicate_prevention():
