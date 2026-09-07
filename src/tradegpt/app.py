@@ -10,7 +10,6 @@ from .composition import build_runtime
 from .forward_learning import evaluate_learning_record
 from .ledger import AuditEvent, AuditLedger
 from .learning import LearningRecord, Outcome
-from .lifecycle import CandidateLifecycle
 from .models import Candidate, CandidateState
 from .orchestration import ScanInput, ScanOrchestrator
 from .scan_audit import ScanRun
@@ -220,10 +219,14 @@ def process_scan(request: ScanRequest) -> dict:
 @app.get("/api/v1/scheduler")
 def scheduler_status(now: datetime | None = Query(default=None)) -> dict[str, object]:
     status = scheduler_service.status(now)
+    next_run = None
+    if status.next_scan_id is not None:
+        next_run = {"scan_id": status.next_scan_id, "run_at": status.next_run_at}
     return {
         "timezone": status.timezone,
         "next_scan_id": status.next_scan_id,
         "next_run_at": status.next_run_at,
+        "next_run": next_run,
         "scans": list(status.scans),
     }
 
