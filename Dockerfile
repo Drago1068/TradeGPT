@@ -1,20 +1,33 @@
-FROM python:3.12-slim
+FROM python:3.12-slim AS builder
 
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
-WORKDIR /app
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+WORKDIR /build
 
 COPY pyproject.toml .
 COPY src ./src
-COPY tests ./tests
 
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir . \
-    && pip install --no-cache-dir 'pytest>=8,<9' 'httpx>=0.28,<1' \
-    && useradd --create-home --uid 10001 tradegpt \
+RUN python -m pip install --no-cache-dir --upgrade pip \
+    && python -m pip wheel --no-cache-dir --no-deps --wheel-dir /wheels .
+
+FROM python:3.12-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+WORKDIR /app
+
+COPY --from=builder /wheels /wheels
+RUN python -m pip install --no-cache-dir --no-index --find-links=/wheels tradegpt \
+    && rm -rf /wheels \
+    && useradd --create-home --uid 10001 --shell /usr/sbin/nologin tradegpt \
     && chown -R tradegpt:tradegpt /app
 
 USER tradegpt
-ENV PYTHONPATH=/app/src
 EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3).read()"
 
 CMD ["uvicorn", "tradegpt.app:app", "--host", "0.0.0.0", "--port", "8080"]
