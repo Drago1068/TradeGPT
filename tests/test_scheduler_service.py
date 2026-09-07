@@ -3,6 +3,7 @@ from zoneinfo import ZoneInfo
 
 from tradegpt.scheduler_service import SchedulerService
 from tradegpt.scan_audit import ScanRun
+from tradegpt.ledger import AuditEvent
 
 
 EASTERN = ZoneInfo("America/New_York")
@@ -59,6 +60,38 @@ def test_service_missed_scan_counts_as_run():
     now = et(2026, 9, 7, 12, 40)
     service.missed("midday-discovery", et(2026, 9, 7, 12, 30), now)
     assert "midday-discovery" not in [s.id for s in service.due(now)]
+
+
+def test_service_uses_scheduled_at_not_event_ingestion_time():
+    store = FakeAuditStore()
+    service = SchedulerService(store)
+    scheduled = et(2026, 9, 7, 8, 0)
+    # Simulate a delayed persistence event whose ingestion timestamp is much
+    # later than the logical scan time. The logical scheduled time must drive
+    # duplicate prevention, not the audit event's ingestion timestamp.
+    store.append(
+        AuditEvent(
+            event_type="SCAN_COMPLETED",
+            symbol=None,
+            timestamp=et(2026, 9, 7, 10, 0),
+            payload={"scan_id": "daily-discovery", "scheduled_at": scheduled.isoformat()},
+        )
+    )
+    assert "daily-discovery" not in [s.id for s in service.due(et(2026, 9, 7, 10, 5))]
+
+
+def test_service_ignores_malformed_scheduled_at_and_falls_back_to_event_time():
+    store = FakeAuditStore()
+    service = SchedulerService(store)
+    store.append(
+        AuditEvent(
+            event_type="SCAN_COMPLETED",
+            symbol=None,
+            timestamp=et(2026, 9, 7, 8, 1),
+            payload={"scan_id": "daily-discovery", "scheduled_at": "not-a-timestamp"},
+        )
+    )
+    assert "daily-discovery" not in [s.id for s in service.due(et(2026, 9, 7, 8, 5))]
 
 
 def test_service_rejects_unknown_scan():
