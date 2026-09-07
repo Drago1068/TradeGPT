@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Callable, Mapping, Protocol, Sequence
 
 from .learning import LearningRecord
@@ -56,6 +56,7 @@ class ScanExecutorService:
         daily_loss: float = 0.0,
         exceptional: bool = False,
         max_age_seconds: float = 30.0,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         self.plan_provider = plan_provider
         self.qualification = qualification
@@ -67,18 +68,20 @@ class ScanExecutorService:
         self.daily_loss = daily_loss
         self.exceptional = exceptional
         self.max_age_seconds = max_age_seconds
+        self.clock = clock or (lambda: datetime.now(timezone.utc))
 
     def execute(self, scan_id: str, scheduled_at: datetime) -> ScanExecutionResult:
         requests = self._requests(scan_id, scheduled_at)
         processed = 0
         trade_ready = 0
         rejected_or_invalidated = 0
+        execution_time = self.clock()
 
         for request in requests:
             result = self.qualification.qualify(
                 request,
                 equity=self.equity,
-                now=scheduled_at,
+                now=execution_time,
                 current_heat=self.current_heat,
                 daily_loss=self.daily_loss,
                 exceptional=self.exceptional,
@@ -101,6 +104,7 @@ class ScanExecutorService:
                     candidate.state.value,
                     scan_id=scan_id,
                     scheduled_at=scheduled_at.isoformat(),
+                    evaluated_at=execution_time.isoformat(),
                     score=candidate.score,
                     trade_ready=record.trade_ready,
                     reasons=record.reasons,
@@ -130,10 +134,11 @@ class ScanExecutorService:
     def _candidate_event(symbol: str, state: str, **payload: object):
         from .ledger import AuditEvent
 
+        scheduled_at = str(payload.pop("scheduled_at"))
         return AuditEvent(
             event_type="CANDIDATE_QUALIFIED",
             symbol=symbol,
-            timestamp=datetime.fromisoformat(str(payload.pop("scheduled_at"))),
+            timestamp=datetime.fromisoformat(scheduled_at),
             state=state,
             payload=payload,
         )
