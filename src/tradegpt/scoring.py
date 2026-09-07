@@ -11,6 +11,7 @@ class ScorePolicy:
     armed_min: float = 82.0
     watch_min: float = 74.0
     discovery_min: float = 65.0
+    min_reward_risk: float = 2.0
 
 
 def composite_score(
@@ -68,6 +69,6 @@ def execution_gate(candidate: Candidate, *, policy: ScorePolicy | None = None) -
     if candidate.target_price is not None and candidate.entry_trigger is not None and candidate.stop_price is not None:
         risk = candidate.entry_trigger - candidate.stop_price
         reward = candidate.target_price - candidate.entry_trigger
-        if risk <= 0 or reward / risk < 2.0:
+        if risk <= 0 or reward / risk < p.min_reward_risk:
             reasons.append("REWARD_RISK_GATE")
     return not reasons, tuple(reasons)
