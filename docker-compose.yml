@@ -11,6 +11,18 @@ services:
     ports:
       - "8080:8080"
 
+  worker:
+    build: .
+    restart: unless-stopped
+    environment:
+      TRADEGPT_ENV: production
+      TRADEGPT_WORKER_POLL_SECONDS: ${TRADEGPT_WORKER_POLL_SECONDS:-15}
+      DATABASE_URL: postgresql://tradegpt:${POSTGRES_PASSWORD}@db:5432/tradegpt
+    command: ["python", "-m", "tradegpt.worker_main"]
+    depends_on:
+      db:
+        condition: service_healthy
+
   db:
     image: postgres:16-alpine
     restart: unless-stopped
