@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from .persistence import PersistentAuditStore
-from .scan_audit import scan_completed, scan_failed, scan_missed, scan_started, ScanRun
+from .scan_audit import scan_completed, scan_failed, scan_missed, scan_no_plan, scan_started, ScanRun
 from .scheduler import ScanSchedule, default_production_schedule, due_scans, next_run, scheduled_datetime
 
 
@@ -23,7 +23,7 @@ class SchedulerService:
     actual market-data/scan execution outside the scheduler boundary.
     """
 
-    RUN_EVENT_TYPES = {"SCAN_COMPLETED", "SCAN_FAILED", "SCAN_MISSED"}
+    RUN_EVENT_TYPES = {"SCAN_COMPLETED", "SCAN_FAILED", "SCAN_MISSED", "SCAN_NO_PLAN"}
 
     def __init__(self, audit_store: PersistentAuditStore, schedules: tuple[ScanSchedule, ...] | None = None) -> None:
         self.audit_store = audit_store
@@ -101,6 +101,12 @@ class SchedulerService:
     def complete(self, run: ScanRun, completed_at: datetime | None = None) -> ScanRun:
         self._require_scan(run.scan_id)
         return scan_completed(self.audit_store, run, completed_at)
+
+    def record_non_success(self, run: ScanRun, status: str, processed: int = 0, detected_at: datetime | None = None) -> ScanRun:
+        self._require_scan(run.scan_id)
+        if status == "NO_PLAN":
+            return scan_no_plan(self.audit_store, run, processed, detected_at)
+        raise ValueError(f"unsupported non-success scan status: {status}")
 
     def fail(self, run: ScanRun, error: str, failed_at: datetime | None = None) -> ScanRun:
         self._require_scan(run.scan_id)
