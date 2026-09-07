@@ -9,8 +9,11 @@ COPY tests ./tests
 
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir . \
-    && pip install --no-cache-dir 'pytest>=8,<9' 'httpx>=0.28,<1'
+    && pip install --no-cache-dir 'pytest>=8,<9' 'httpx>=0.28,<1' \
+    && useradd --create-home --uid 10001 tradegpt \
+    && chown -R tradegpt:tradegpt /app
 
+USER tradegpt
 ENV PYTHONPATH=/app/src
 EXPOSE 8080
 
