@@ -17,7 +17,7 @@ def test_poll_interval_rejects_invalid(monkeypatch):
 def test_poll_interval_rejects_non_positive(monkeypatch):
     monkeypatch.setenv("TRADEGPT_WORKER_POLL_SECONDS", "0")
     with pytest.raises(RuntimeError, match="must be positive"):
-    	_poll_interval_seconds()
+        _poll_interval_seconds()
 
 
 def test_max_backoff_defaults(monkeypatch):
