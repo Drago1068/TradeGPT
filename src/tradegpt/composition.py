@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime
 from typing import Callable, Sequence
 
-from .db import make_engine, make_session_factory
+from .db import init_db, make_engine, make_session_factory
 from .persistence import PersistentAuditStore, PersistentCandidateStore, PersistentLearningStore
 from .providers.configured import ConfiguredMarketDataProvider
 from .qualification import QualificationRequest, QualificationService
@@ -26,13 +27,13 @@ def _equity_from_environment() -> float:
 class EmptyScanPlanProvider:
     """Safe production default until a real discovery engine is configured."""
 
-    def requests(self, scan_id: str, scheduled_at):
+    def requests(self, scan_id: str, scheduled_at: datetime) -> Sequence[QualificationRequest]:
         return ()
 
 
 def build_scheduler_worker(
     *,
-    plan_provider: ScanPlanProvider | Callable[[str, object], Sequence[QualificationRequest]] | None = None,
+    plan_provider: ScanPlanProvider | Callable[[str, datetime], Sequence[QualificationRequest]] | None = None,
     database_url: str | None = None,
     provider=None,
     equity: float | None = None,
@@ -44,6 +45,7 @@ def build_scheduler_worker(
     worker or qualification boundaries.
     """
     engine = make_engine(database_url)
+    init_db(engine)
     session_factory = make_session_factory(engine)
     audit_store = PersistentAuditStore(session_factory)
     candidate_store = PersistentCandidateStore(session_factory)
@@ -60,5 +62,5 @@ def build_scheduler_worker(
         equity=equity if equity is not None else _equity_from_environment(),
     )
     scheduler = SchedulerService(audit_store)
-    worker = SchedulerWorker(scheduler, executor.execute)
+    worker = SchedulerWorker(scheduler, executor)
     return scheduler, worker
