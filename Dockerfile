@@ -9,7 +9,7 @@ COPY pyproject.toml .
 COPY src ./src
 
 RUN python -m pip install --no-cache-dir --upgrade pip \
-    && python -m pip wheel --no-cache-dir --no-deps --wheel-dir /wheels .
+    && python -m pip wheel --no-cache-dir --wheel-dir /wheels .
 
 FROM python:3.12-slim AS runtime
 
