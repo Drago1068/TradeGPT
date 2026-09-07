@@ -8,6 +8,7 @@ from sqlalchemy import inspect, text
 from .db import Base
 from .ledger import AuditLedger
 from .models import Candidate, CandidateState
+from .migrations import CURRENT_SCHEMA_VERSION
 
 
 class CandidateStore:
@@ -46,18 +47,25 @@ def readiness_payload(*, engine, market_data_configured: bool, scan_plan_configu
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))
         checks["database"]["ready"] = True
-    except Exception as exc:
-        checks["database"]["error"] = f"{type(exc).__name__}: {exc}"
+    except Exception:
+        checks["database"]["error"] = "DATABASE_UNAVAILABLE"
 
     if checks["database"]["ready"]:
         try:
             tables = set(inspect(engine).get_table_names())
-            required = {table.name for table in Base.metadata.sorted_tables}
+            required = {table.name for table in Base.metadata.sorted_tables} | {"schema_version"}
             checks["schema"]["ready"] = required.issubset(tables)
             if not checks["schema"]["ready"]:
                 checks["schema"]["missing_tables"] = sorted(required - tables)
-        except Exception as exc:
-            checks["schema"]["error"] = f"{type(exc).__name__}: {exc}"
+            else:
+                with engine.connect() as connection:
+                    version = connection.execute(text("SELECT version FROM schema_version LIMIT 1")).scalar_one_or_none()
+                checks["schema"]["version"] = version
+                checks["schema"]["ready"] = version == CURRENT_SCHEMA_VERSION
+                if version != CURRENT_SCHEMA_VERSION:
+                    checks["schema"]["error"] = "SCHEMA_VERSION_MISMATCH"
+        except Exception:
+            checks["schema"]["error"] = "SCHEMA_CHECK_FAILED"
 
     ready = all(bool(check["ready"]) for check in checks.values())
     return {
