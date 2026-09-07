@@ -41,7 +41,7 @@ def test_worker_failure_is_audited_and_not_retried_for_same_window():
     scheduler = _service()
     executor = FakeExecutor(RuntimeError("provider unavailable"))
     worker = SchedulerWorker(scheduler, executor)
-    now = datetime(2026, 9, 7, 14, 15, tzinfo=timezone.utc)
+    now = datetime(2026, 9, 7, 12, 0, tzinfo=timezone.utc)
     result = worker.run_due(now)
     again = worker.run_due(now)
     assert result[0].status == "FAILED"
