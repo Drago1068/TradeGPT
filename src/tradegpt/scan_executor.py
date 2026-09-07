@@ -20,6 +20,7 @@ class ScanExecutionResult:
     processed: int
     trade_ready: int
     rejected_or_invalidated: int
+    status: str = "COMPLETED"
 
 
 class StaticScanPlanProvider:
@@ -76,6 +77,17 @@ class ScanExecutorService:
         trade_ready = 0
         rejected_or_invalidated = 0
         execution_time = self.clock()
+
+        if not requests:
+            self.audit_store.append(self._no_plan_event(scan_id, scheduled_at, execution_time))
+            return ScanExecutionResult(
+                scan_id=scan_id,
+                scheduled_at=scheduled_at,
+                processed=0,
+                trade_ready=0,
+                rejected_or_invalidated=0,
+                status="NO_PLAN",
+            )
 
         for request in requests:
             result = self.qualification.qualify(
@@ -141,4 +153,20 @@ class ScanExecutorService:
             timestamp=datetime.fromisoformat(scheduled_at),
             state=state,
             payload=payload,
+        )
+
+    @staticmethod
+    def _no_plan_event(scan_id: str, scheduled_at: datetime, evaluated_at: datetime):
+        from .ledger import AuditEvent
+
+        return AuditEvent(
+            event_type="SCAN_NO_PLAN",
+            symbol=None,
+            timestamp=evaluated_at,
+            payload={
+                "scan_id": scan_id,
+                "scheduled_at": scheduled_at.isoformat(),
+                "evaluated_at": evaluated_at.isoformat(),
+                "reason": "scan plan provider returned no requests",
+            },
         )
