@@ -83,7 +83,7 @@ def build_runtime(
         audit_store=audit_store,
         learning_store=learning_store,
         engine=engine,
-        market_data_configured=getattr(configured_provider, "fetcher", None) is not None,
+        market_data_configured=bool(getattr(configured_provider, "is_configured", False)),
         scan_plan_configured=not isinstance(configured_plan_provider, EmptyScanPlanProvider),
     )
 
