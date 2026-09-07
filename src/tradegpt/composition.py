@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable, Sequence
 
@@ -31,14 +32,25 @@ class EmptyScanPlanProvider:
         return ()
 
 
-def build_scheduler_worker(
+@dataclass(frozen=True)
+class TradeGPTRuntime:
+    """Canonical application dependency graph shared by API and worker paths."""
+
+    scheduler: SchedulerService
+    worker: SchedulerWorker
+    candidate_store: PersistentCandidateStore
+    audit_store: PersistentAuditStore
+    learning_store: PersistentLearningStore
+
+
+def build_runtime(
     *,
     plan_provider: ScanPlanProvider | Callable[[str, datetime], Sequence[QualificationRequest]] | None = None,
     database_url: str | None = None,
     provider=None,
     equity: float | None = None,
-) -> tuple[SchedulerService, SchedulerWorker]:
-    """Build the production scheduler/worker dependency graph.
+) -> TradeGPTRuntime:
+    """Build the complete production runtime with one shared persistence graph.
 
     The default graph is deliberately safe: no discovery plan and no broker
     connectivity. Supplying a plan provider adds discovery without changing the
@@ -63,4 +75,27 @@ def build_scheduler_worker(
     )
     scheduler = SchedulerService(audit_store)
     worker = SchedulerWorker(scheduler, executor)
-    return scheduler, worker
+    return TradeGPTRuntime(
+        scheduler=scheduler,
+        worker=worker,
+        candidate_store=candidate_store,
+        audit_store=audit_store,
+        learning_store=learning_store,
+    )
+
+
+def build_scheduler_worker(
+    *,
+    plan_provider: ScanPlanProvider | Callable[[str, datetime], Sequence[QualificationRequest]] | None = None,
+    database_url: str | None = None,
+    provider=None,
+    equity: float | None = None,
+) -> tuple[SchedulerService, SchedulerWorker]:
+    """Backward-compatible builder returning only scheduler and worker."""
+    runtime = build_runtime(
+        plan_provider=plan_provider,
+        database_url=database_url,
+        provider=provider,
+        equity=equity,
+    )
+    return runtime.scheduler, runtime.worker
