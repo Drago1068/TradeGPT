@@ -42,7 +42,7 @@ def test_configured_runtime_reports_data_and_plan_readiness(tmp_path):
     database_url = f"sqlite:///{tmp_path / 'configured.db'}"
 
     class Provider:
-        fetcher = object()
+        is_configured = True
 
         def as_provider(self):
             return self
