@@ -10,7 +10,7 @@ from .composition import build_runtime
 from .forward_learning import evaluate_learning_record
 from .ledger import AuditEvent, AuditLedger
 from .learning import LearningRecord, Outcome
-from .models import Candidate, CandidateState
+from .models import CandidateState
 from .orchestration import ScanInput, ScanOrchestrator
 from .scan_audit import ScanRun
 
@@ -213,7 +213,12 @@ def process_scan(request: ScanRequest) -> dict:
     persisted = store.upsert(result.candidate)
     for event in ledger.all():
         audit_store.append(event)
-    return {"candidate": candidate_payload(persisted), "risk": result.risk_decision, "execution_reasons": result.execution_reasons}
+    return {
+        "candidate": candidate_payload(persisted),
+        "risk_decision": result.risk_decision,
+        "risk": result.risk_decision,
+        "execution_reasons": result.execution_reasons,
+    }
 
 
 @app.get("/api/v1/scheduler")
