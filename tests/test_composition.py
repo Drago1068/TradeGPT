@@ -13,7 +13,7 @@ def test_default_composition_is_safe_and_initializes_database(tmp_path):
     due = worker.run_due(datetime(2026, 9, 7, 12, 0, tzinfo=timezone.utc))
 
     assert len(due) == 1
-    assert due[0].scan_id == "daily_sniper"
+    assert due[0].scan_id == "daily-discovery"
     assert due[0].status == "COMPLETED"
     assert len(scheduler.status(datetime(2026, 9, 7, 12, 0, tzinfo=timezone.utc)).scans) == 3
     tables = set(inspect(make_engine(database_url)).get_table_names())
@@ -22,4 +22,4 @@ def test_default_composition_is_safe_and_initializes_database(tmp_path):
 
 def test_empty_plan_provider_has_no_symbols():
     provider = EmptyScanPlanProvider()
-    assert provider.requests("daily_sniper", datetime(2026, 9, 7, 12, 0, tzinfo=timezone.utc)) == ()
+    assert provider.requests("daily-discovery", datetime(2026, 9, 7, 12, 0, tzinfo=timezone.utc)) == ()
