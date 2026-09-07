@@ -20,8 +20,8 @@ class ConfiguredMarketDataProvider:
 
     @property
     def is_configured(self) -> bool:
-        """Whether a real market-data fetch boundary has been supplied."""
-        return callable(self.fetcher)
+        """Whether a fetch implementation has been supplied to the adapter."""
+        return self.fetcher is not None
 
     def snapshot(self, symbol: str) -> QuoteSnapshot:
         symbol = symbol.upper()
