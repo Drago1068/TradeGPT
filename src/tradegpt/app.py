@@ -6,13 +6,12 @@ from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
 
 from .api import candidate_payload, health_payload
-from .audit_persistence import PersistentAuditStore
 from .db import init_db, make_engine
 from .ledger import AuditLedger
 from .lifecycle import CandidateLifecycle
 from .models import Candidate, CandidateState
 from .orchestration import ScanInput, ScanOrchestrator
-from .persistence import PersistentCandidateStore
+from .persistence import PersistentAuditStore, PersistentCandidateStore
 
 app = FastAPI(title="TradeGPT V2", version="2.0.0-alpha.2")
 engine = make_engine()
