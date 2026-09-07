@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from datetime import datetime
 
@@ -28,6 +29,16 @@ class CandidateRow(Base):
     last_price: Mapped[float | None] = mapped_column(Float)
     data_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     rejection_reasons: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+
+class AuditEventRow(Base):
+    __tablename__ = "audit_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    symbol: Mapped[str] = mapped_column(String(16), nullable=False)
+    payload: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
 
 
 def database_url() -> str:
