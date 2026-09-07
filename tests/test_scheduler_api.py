@@ -3,6 +3,7 @@ from datetime import datetime
 from fastapi.testclient import TestClient
 
 from tradegpt import app as app_module
+from tradegpt.scheduler import PRODUCTION_SCAN_IDS
 from tradegpt.scan_audit import ScanRun
 
 
@@ -17,20 +18,26 @@ class FakeSchedulerService:
         return []
 
     def start(self, scan_id, scheduled_at, started_at=None):
+        if scan_id not in PRODUCTION_SCAN_IDS:
+            raise KeyError(f"unknown production scan: {scan_id}")
         self.calls.append(("start", scan_id))
         return ScanRun(scan_id, scheduled_at, started_at or scheduled_at, status="STARTED")
 
     def complete(self, run, completed_at=None):
+        if run.scan_id not in PRODUCTION_SCAN_IDS:
+            raise KeyError(f"unknown production scan: {run.scan_id}")
         self.calls.append(("complete", run.scan_id))
-        run.complete(completed_at or run.started_at)
-        return run
+        return ScanRun(run.scan_id, run.scheduled_at, run.started_at, completed_at or run.started_at, "COMPLETED")
 
     def fail(self, run, error, failed_at=None):
+        if run.scan_id not in PRODUCTION_SCAN_IDS:
+            raise KeyError(f"unknown production scan: {run.scan_id}")
         self.calls.append(("fail", run.scan_id))
-        run.fail(error, failed_at or run.started_at)
-        return run
+        return ScanRun(run.scan_id, run.scheduled_at, run.started_at, failed_at or run.started_at, "FAILED", error)
 
     def missed(self, scan_id, scheduled_at, detected_at=None):
+        if scan_id not in PRODUCTION_SCAN_IDS:
+            raise KeyError(f"unknown production scan: {scan_id}")
         self.calls.append(("missed", scan_id))
 
 
