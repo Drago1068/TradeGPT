@@ -5,6 +5,7 @@ from datetime import datetime
 
 from .ledger import AuditLedger
 from .lifecycle import CandidateLifecycle
+from .market_data import QuoteSnapshot
 from .models import Candidate, CandidateState
 from .risk import RiskDecision, RiskPolicy, evaluate_trade
 from .scoring import ScorePolicy, composite_score, execution_gate
@@ -26,6 +27,38 @@ class ScanInput:
     adv_shares: int | None
     adv_dollars: float | None
     trigger_confirmed: bool = False
+
+    @classmethod
+    def from_snapshot(
+        cls,
+        snapshot: QuoteSnapshot,
+        *,
+        catalyst_score: float,
+        technical_score: float,
+        relative_strength_score: float,
+        liquidity_score: float,
+        entry_trigger: float | None,
+        stop_price: float | None,
+        target_price: float | None,
+        trigger_confirmed: bool = False,
+    ) -> "ScanInput":
+        """Build strategy input from one provider snapshot without hiding data gaps."""
+        return cls(
+            symbol=snapshot.symbol,
+            discovered_at=snapshot.timestamp,
+            catalyst_score=catalyst_score,
+            technical_score=technical_score,
+            relative_strength_score=relative_strength_score,
+            liquidity_score=liquidity_score,
+            last_price=snapshot.last_price,
+            entry_trigger=entry_trigger,
+            stop_price=stop_price,
+            target_price=target_price,
+            data_verified=snapshot.verified,
+            adv_shares=int(snapshot.adv_shares) if snapshot.adv_shares is not None else None,
+            adv_dollars=snapshot.adv_dollars,
+            trigger_confirmed=trigger_confirmed,
+        )
 
 
 @dataclass(frozen=True)
