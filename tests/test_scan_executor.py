@@ -69,11 +69,36 @@ def test_executor_qualifies_and_persists_trade_ready_candidate():
 
     assert result.processed == 1
     assert result.trade_ready == 1
+    assert result.status == "COMPLETED"
     candidate = candidates.get("TEST")
     assert candidate is not None
     assert candidate.state.value == "TRADE_READY"
     assert learning.list("TEST")[0].trade_ready is True
     assert audit.list("CANDIDATE_QUALIFIED")[0].payload["scan_id"] == "daily-discovery"
+
+
+def test_executor_reports_no_plan_instead_of_false_completion():
+    candidates, learning, audit = _stores()
+    qualification = QualificationService(StaticProvider(_snapshot()))
+    executor = ScanExecutorService(
+        plan_provider=StaticScanPlanProvider({}),
+        qualification=qualification,
+        candidate_store=candidates,
+        learning_store=learning,
+        audit_store=audit,
+        equity=2905,
+        clock=lambda: NOW,
+    )
+
+    result = executor.execute("daily-discovery", NOW)
+
+    assert result.status == "NO_PLAN"
+    assert result.processed == 0
+    assert candidates.get("TEST") is None
+    assert learning.list() == []
+    events = audit.list()
+    assert [event.event_type for event in events] == ["SCAN_NO_PLAN"]
+    assert events[0].payload["scan_id"] == "daily-discovery"
 
 
 def test_executor_fail_closed_on_stale_provider_data():
