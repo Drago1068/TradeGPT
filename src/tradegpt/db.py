@@ -36,7 +36,7 @@ class AuditEventRow(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     event_type: Mapped[str] = mapped_column(String(64), nullable=False)
-    symbol: Mapped[str] = mapped_column(String(16), nullable=False)
+    symbol: Mapped[str | None] = mapped_column(String(16), nullable=True)
     payload: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
 
 

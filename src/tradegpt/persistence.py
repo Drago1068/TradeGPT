@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
 
 from sqlalchemy import select
 
@@ -87,12 +86,19 @@ class PersistentAuditStore:
             row = AuditEventRow(
                 timestamp=event.timestamp,
                 event_type=event.event_type,
-                symbol=event.symbol.upper(),
+                symbol=event.symbol.upper() if event.symbol else None,
                 payload=json.dumps({"state": event.state, **event.payload}),
             )
             session.add(row)
             session.commit()
         return event
+
+    def list(self, event_type: str | None = None) -> list[AuditEvent]:
+        with self.session_factory() as session:
+            stmt = select(AuditEventRow).order_by(AuditEventRow.id.asc())
+            if event_type is not None:
+                stmt = stmt.where(AuditEventRow.event_type == event_type)
+            return [self._to_model(row) for row in session.scalars(stmt)]
 
     def for_symbol(self, symbol: str) -> list[AuditEvent]:
         with self.session_factory() as session:

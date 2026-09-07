@@ -8,7 +8,7 @@ from typing import Any
 @dataclass(frozen=True)
 class AuditEvent:
     event_type: str
-    symbol: str
+    symbol: str | None
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     state: str | None = None
     payload: dict[str, Any] = field(default_factory=dict)
