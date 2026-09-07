@@ -19,11 +19,11 @@ def evaluate_path(
     target_price: float,
     prices: Iterable[float],
 ) -> ForwardTestResult:
-    """Evaluate a long trade path without look-ahead beyond the supplied sequence.
+    """Evaluate a long trade path from sequential price observations.
 
-    The first supplied price is treated as the first observation after entry.
-    If stop and target are both touched by the same observation, the conservative
-    outcome is STOPPED because intrabar ordering is unknown.
+    This evaluator deliberately does not infer intrabar ordering. For OHLC data,
+    use an OHLC-specific evaluator before production because a bar can touch both
+    stop and target and the sequence cannot be known from close prices alone.
     """
     if entry_price <= 0 or stop_price <= 0 or target_price <= 0:
         raise ValueError("prices must be positive")
@@ -36,13 +36,13 @@ def evaluate_path(
     observations = list(prices)
     if not observations:
         raise ValueError("prices must contain at least one observation")
+    if any(price <= 0 for price in observations):
+        raise ValueError("observations must be positive")
 
     mae = min((price - entry_price) / risk for price in observations)
     mfe = max((price - entry_price) / risk for price in observations)
 
     for price in observations:
-        if price <= stop_price and price >= target_price:
-            return ForwardTestResult(-1.0, mae, mfe, "STOPPED")
         if price <= stop_price:
             return ForwardTestResult(-1.0, mae, mfe, "STOPPED")
         if price >= target_price:
