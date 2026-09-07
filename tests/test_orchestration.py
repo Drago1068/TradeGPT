@@ -24,6 +24,7 @@ def scan(**overrides):
         data_verified=True,
         adv_shares=1_000_000,
         adv_dollars=20_000_000,
+        trigger_confirmed=True,
     )
     values.update(overrides)
     return ScanInput(**values)
@@ -35,6 +36,15 @@ def test_discovery_does_not_require_a_plus():
         equity=2905,
     )
     assert result.candidate.score == 70
+    assert result.candidate.state is CandidateState.DISCOVERED
+
+
+def test_watch_band_is_not_promoted_to_armed():
+    result = ScanOrchestrator().process(
+        scan(catalyst_score=74, technical_score=74, relative_strength_score=74, liquidity_score=74),
+        equity=2905,
+    )
+    assert result.candidate.score == 74
     assert result.candidate.state is CandidateState.WATCH
 
 
