@@ -90,7 +90,10 @@ class ScanOrchestrator:
         current_heat: float = 0.0,
         daily_loss: float = 0.0,
         exceptional: bool = False,
+        ledger: AuditLedger | None = None,
     ) -> OrchestrationResult:
+        if ledger is not None:
+            self.lifecycle = CandidateLifecycle(ledger)
         score = composite_score(
             catalyst=scan.catalyst_score,
             technical=scan.technical_score,
