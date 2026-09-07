@@ -9,6 +9,7 @@ from .api import candidate_payload, health_payload
 from .audit_persistence import PersistentAuditStore
 from .db import init_db, make_engine
 from .ledger import AuditLedger
+from .lifecycle import CandidateLifecycle
 from .models import Candidate, CandidateState
 from .orchestration import ScanInput, ScanOrchestrator
 from .persistence import PersistentCandidateStore
@@ -102,7 +103,9 @@ def upsert_candidate(candidate: Candidate) -> dict:
 @app.post("/api/v1/scans/process")
 def process_scan(request: ScanRequest) -> dict:
     ledger = AuditLedger()
-    result = ScanOrchestrator(lifecycle=__import__("tradegpt.lifecycle", fromlist=["CandidateLifecycle"]).CandidateLifecycle(ledger)).process(
+    result = ScanOrchestrator(
+        lifecycle=CandidateLifecycle(ledger),
+    ).process(
         _scan_input(request),
         equity=request.equity,
         current_heat=request.current_heat,
