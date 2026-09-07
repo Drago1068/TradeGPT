@@ -5,6 +5,7 @@ from sqlalchemy import inspect, text
 from .db import Base
 
 CURRENT_SCHEMA_VERSION = 1
+MIGRATION_LOCK_KEY = 82746321
 
 
 def _schema_tables() -> set[str]:
@@ -18,8 +19,19 @@ def migrate(engine) -> int:
     the pre-migration ``create_all`` bootstrap are safely recognized and stamped
     rather than attempting to recreate their tables. Future changes should be
     added as explicit versioned migrations here.
+
+    PostgreSQL deployments may start the API and worker simultaneously. A
+    transaction-scoped advisory lock prevents both processes from attempting the
+    first schema bootstrap or a future migration at the same time. SQLite keeps
+    its existing single-process test path without using PostgreSQL-specific SQL.
     """
     with engine.begin() as connection:
+        if connection.dialect.name == "postgresql":
+            connection.execute(
+                text("SELECT pg_advisory_xact_lock(:lock_key)"),
+                {"lock_key": MIGRATION_LOCK_KEY},
+            )
+
         connection.execute(
             text(
                 "CREATE TABLE IF NOT EXISTS schema_version "
@@ -38,7 +50,6 @@ def migrate(engine) -> int:
         if version < 1:
             existing = set(inspect(connection).get_table_names())
             if _schema_tables().issubset(existing):
-                # Upgrade databases created by the old create_all bootstrap.
                 version = 1
             else:
                 Base.metadata.create_all(connection)
