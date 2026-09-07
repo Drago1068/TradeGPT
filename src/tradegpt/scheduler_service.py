@@ -23,6 +23,8 @@ class SchedulerService:
     actual market-data/scan execution outside the scheduler boundary.
     """
 
+    RUN_EVENT_TYPES = {"SCAN_COMPLETED", "SCAN_FAILED", "SCAN_MISSED"}
+
     def __init__(self, audit_store: PersistentAuditStore, schedules: tuple[ScanSchedule, ...] | None = None) -> None:
         self.audit_store = audit_store
         self.schedules = schedules or default_production_schedule()
@@ -33,12 +35,30 @@ class SchedulerService:
         last_run: dict[str, datetime] = {}
         for event in events:
             scan_id = event.payload.get("scan_id")
-            if not isinstance(scan_id, str) or event.event_type not in {"SCAN_COMPLETED", "SCAN_FAILED", "SCAN_MISSED"}:
+            if not isinstance(scan_id, str) or event.event_type not in self.RUN_EVENT_TYPES:
                 continue
+            logical_run_at = self._scheduled_at_from_event(event.payload)
+            if logical_run_at is None:
+                # Backward compatibility for older audit events that predate
+                # the durable scheduled_at payload field.
+                logical_run_at = event.timestamp
             previous = last_run.get(scan_id)
-            if previous is None or event.timestamp > previous:
-                last_run[scan_id] = event.timestamp
+            if previous is None or logical_run_at > previous:
+                last_run[scan_id] = logical_run_at
         return due_scans(moment, self.schedules, last_run=last_run)
+
+    @staticmethod
+    def _scheduled_at_from_event(payload: dict[str, object]) -> datetime | None:
+        value = payload.get("scheduled_at")
+        if not isinstance(value, str):
+            return None
+        try:
+            parsed = datetime.fromisoformat(value)
+        except ValueError:
+            return None
+        if parsed.tzinfo is None:
+            return None
+        return parsed
 
     def status(self, now: datetime | None = None) -> SchedulerStatus:
         moment = now or datetime.now(timezone.utc)
