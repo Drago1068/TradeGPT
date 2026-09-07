@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict
 
 from .api import candidate_payload, health_payload
 from .db import init_db, make_engine
+from .forward_learning import evaluate_learning_record
 from .ledger import AuditEvent, AuditLedger
 from .learning import LearningRecord, Outcome
 from .lifecycle import CandidateLifecycle
@@ -14,7 +15,7 @@ from .models import Candidate, CandidateState
 from .orchestration import ScanInput, ScanOrchestrator
 from .persistence import PersistentAuditStore, PersistentCandidateStore, PersistentLearningStore
 
-app = FastAPI(title="TradeGPT V2", version="2.0.0-alpha.4")
+app = FastAPI(title="TradeGPT V2", version="2.0.0-alpha.5")
 engine = make_engine()
 init_db(engine)
 store = PersistentCandidateStore()
@@ -66,6 +67,16 @@ class LearningOutcomeRequest(BaseModel):
     max_adverse_excursion_r: float | None = None
     max_favorable_excursion_r: float | None = None
     result: str = "UNRESOLVED"
+
+
+class ForwardTestRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    entry_price: float
+    stop_price: float
+    target_price: float
+    prices: list[float]
+    evaluated_at: datetime | None = None
 
 
 def _scan_input(request: ScanRequest) -> ScanInput:
@@ -155,9 +166,7 @@ def health() -> dict[str, str]:
 
 
 @app.get("/api/v1/candidates")
-def list_candidates(
-    state: CandidateState | None = Query(default=None),
-) -> list[dict]:
+def list_candidates(state: CandidateState | None = Query(default=None)) -> list[dict]:
     return [candidate_payload(candidate) for candidate in store.list(state)]
 
 
@@ -177,9 +186,7 @@ def upsert_candidate(candidate: Candidate) -> dict:
 @app.post("/api/v1/scans/process")
 def process_scan(request: ScanRequest) -> dict:
     ledger = AuditLedger()
-    result = ScanOrchestrator(
-        lifecycle=CandidateLifecycle(ledger),
-    ).process(
+    result = ScanOrchestrator(lifecycle=CandidateLifecycle(ledger)).process(
         _scan_input(request),
         equity=request.equity,
         current_heat=request.current_heat,
@@ -205,14 +212,12 @@ def create_learning_discovery(request: LearningDiscoveryRequest) -> dict:
         discovery_state=request.state,
     )
     record_id = learning_store.create(record)
-    audit_store.append(
-        AuditEvent(
-            event_type="LEARNING_DISCOVERY",
-            symbol=record.symbol,
-            state=record.discovery_state.value,
-            payload={"learning_record_id": record_id, "score": record.discovery_score},
-        )
-    )
+    audit_store.append(AuditEvent(
+        event_type="LEARNING_DISCOVERY",
+        symbol=record.symbol,
+        state=record.discovery_state.value,
+        payload={"learning_record_id": record_id, "score": record.discovery_score},
+    ))
     return _learning_payload(record_id, record)
 
 
@@ -273,14 +278,53 @@ def mark_learning_missed(record_id: int, reason: str = Query(min_length=1)) -> d
 
 def _save_learning(record_id: int, record: LearningRecord, event_type: str, payload: dict) -> dict:
     learning_store.update(record_id, record)
-    audit_store.append(
-        AuditEvent(
-            event_type=event_type,
-            symbol=record.symbol,
-            payload={"learning_record_id": record_id, **payload},
-        )
-    )
+    audit_store.append(AuditEvent(
+        event_type=event_type,
+        symbol=record.symbol,
+        payload={"learning_record_id": record_id, **payload},
+    ))
     return _learning_payload(record_id, record)
+
+
+@app.post("/api/v1/learning/{record_id}/forward-test")
+def forward_test_learning(record_id: int, request: ForwardTestRequest) -> dict:
+    try:
+        result = evaluate_learning_record(
+            learning_store,
+            record_id=record_id,
+            entry_price=request.entry_price,
+            stop_price=request.stop_price,
+            target_price=request.target_price,
+            prices=request.prices,
+            evaluated_at=request.evaluated_at,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    record = learning_store.get(record_id)
+    assert record is not None
+    if result is not None:
+        audit_store.append(AuditEvent(
+            event_type="LEARNING_FORWARD_TEST_RESOLVED",
+            symbol=record.symbol,
+            payload={
+                "learning_record_id": record_id,
+                "result": result.result,
+                "outcome_r": result.outcome_r,
+                "mae_r": result.max_adverse_excursion_r,
+                "mfe_r": result.max_favorable_excursion_r,
+            },
+        ))
+    return {
+        "resolved": result is not None,
+        "result": None if result is None else result.result,
+        "outcome_r": None if result is None else result.outcome_r,
+        "max_adverse_excursion_r": None if result is None else result.max_adverse_excursion_r,
+        "max_favorable_excursion_r": None if result is None else result.max_favorable_excursion_r,
+        "learning": _learning_payload(record_id, record),
+    }
 
 
 @app.post("/api/v1/learning/{record_id}/outcome")
@@ -288,6 +332,8 @@ def record_learning_outcome(record_id: int, request: LearningOutcomeRequest) -> 
     record = learning_store.get(record_id)
     if record is None:
         raise HTTPException(status_code=404, detail="learning record not found")
+    if record.outcome is not None:
+        raise HTTPException(status_code=409, detail="learning record already has an outcome")
     outcome_r = request.outcome_r
     if outcome_r is None and request.entry_price is not None and request.exit_price is not None and request.stop_price is not None:
         risk_per_share = abs(request.entry_price - request.stop_price)
@@ -305,12 +351,7 @@ def record_learning_outcome(record_id: int, request: LearningOutcomeRequest) -> 
         max_favorable_excursion_r=request.max_favorable_excursion_r,
         result=request.result,
     )
-    return _save_learning(
-        record_id,
-        record,
-        "LEARNING_OUTCOME",
-        {"outcome_r": outcome_r, "result": request.result},
-    )
+    return _save_learning(record_id, record, "LEARNING_OUTCOME", {"outcome_r": outcome_r, "result": request.result})
 
 
 @app.get("/api/v1/system")
