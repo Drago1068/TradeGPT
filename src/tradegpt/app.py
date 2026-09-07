@@ -7,14 +7,14 @@ from pydantic import BaseModel, ConfigDict
 
 from .api import candidate_payload, health_payload
 from .db import init_db, make_engine
-from .ledger import AuditLedger
+from .ledger import AuditEvent, AuditLedger
 from .learning import LearningRecord, Outcome
 from .lifecycle import CandidateLifecycle
 from .models import Candidate, CandidateState
 from .orchestration import ScanInput, ScanOrchestrator
 from .persistence import PersistentAuditStore, PersistentCandidateStore, PersistentLearningStore
 
-app = FastAPI(title="TradeGPT V2", version="2.0.0-alpha.3")
+app = FastAPI(title="TradeGPT V2", version="2.0.0-alpha.4")
 engine = make_engine()
 init_db(engine)
 store = PersistentCandidateStore()
@@ -206,7 +206,7 @@ def create_learning_discovery(request: LearningDiscoveryRequest) -> dict:
     )
     record_id = learning_store.create(record)
     audit_store.append(
-        __import__("tradegpt.ledger", fromlist=["AuditEvent"]).AuditEvent(
+        AuditEvent(
             event_type="LEARNING_DISCOVERY",
             symbol=record.symbol,
             state=record.discovery_state.value,
@@ -218,8 +218,7 @@ def create_learning_discovery(request: LearningDiscoveryRequest) -> dict:
 
 @app.get("/api/v1/learning")
 def list_learning(symbol: str | None = Query(default=None)) -> list[dict]:
-    records = learning_store.list(symbol=symbol)
-    return [_learning_payload(index + 1, record) for index, record in enumerate(records)]
+    return [_learning_payload(record_id, record) for record_id, record in learning_store.list_with_ids(symbol=symbol)]
 
 
 @app.get("/api/v1/learning/summary")
@@ -227,17 +226,55 @@ def learning_summary() -> dict[str, float | int]:
     return _learning_summary(learning_store.list())
 
 
-def _get_learning(record_id: int) -> LearningRecord:
+@app.get("/api/v1/learning/{record_id}")
+def get_learning(record_id: int) -> dict:
     record = learning_store.get(record_id)
     if record is None:
         raise HTTPException(status_code=404, detail="learning record not found")
-    return record
+    return _learning_payload(record_id, record)
+
+
+@app.post("/api/v1/learning/{record_id}/triggered")
+def mark_learning_triggered(record_id: int) -> dict:
+    record = learning_store.get(record_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="learning record not found")
+    record.trigger_confirmed = True
+    return _save_learning(record_id, record, "LEARNING_TRIGGER_CONFIRMED", {})
+
+
+@app.post("/api/v1/learning/{record_id}/trade-ready")
+def mark_learning_trade_ready(record_id: int) -> dict:
+    record = learning_store.get(record_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="learning record not found")
+    record.trade_ready = True
+    return _save_learning(record_id, record, "LEARNING_TRADE_READY", {})
+
+
+@app.post("/api/v1/learning/{record_id}/traded")
+def mark_learning_traded(record_id: int) -> dict:
+    record = learning_store.get(record_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="learning record not found")
+    record.traded = True
+    return _save_learning(record_id, record, "LEARNING_TRADED", {})
+
+
+@app.post("/api/v1/learning/{record_id}/missed")
+def mark_learning_missed(record_id: int, reason: str = Query(min_length=1)) -> dict:
+    record = learning_store.get(record_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="learning record not found")
+    record.missed_opportunity = True
+    record.reasons.append(reason)
+    return _save_learning(record_id, record, "LEARNING_MISSED", {"reason": reason})
 
 
 def _save_learning(record_id: int, record: LearningRecord, event_type: str, payload: dict) -> dict:
     learning_store.update(record_id, record)
     audit_store.append(
-        __import__("tradegpt.ledger", fromlist=["AuditEvent"]).AuditEvent(
+        AuditEvent(
             event_type=event_type,
             symbol=record.symbol,
             payload={"learning_record_id": record_id, **payload},
@@ -246,42 +283,16 @@ def _save_learning(record_id: int, record: LearningRecord, event_type: str, payl
     return _learning_payload(record_id, record)
 
 
-@app.post("/api/v1/learning/{record_id}/triggered")
-def mark_learning_triggered(record_id: int) -> dict:
-    record = _get_learning(record_id)
-    record.trigger_confirmed = True
-    return _save_learning(record_id, record, "LEARNING_TRIGGER_CONFIRMED", {})
-
-
-@app.post("/api/v1/learning/{record_id}/trade-ready")
-def mark_learning_trade_ready(record_id: int) -> dict:
-    record = _get_learning(record_id)
-    record.trade_ready = True
-    return _save_learning(record_id, record, "LEARNING_TRADE_READY", {})
-
-
-@app.post("/api/v1/learning/{record_id}/traded")
-def mark_learning_traded(record_id: int) -> dict:
-    record = _get_learning(record_id)
-    record.traded = True
-    return _save_learning(record_id, record, "LEARNING_TRADED", {})
-
-
-@app.post("/api/v1/learning/{record_id}/missed")
-def mark_learning_missed(record_id: int, reason: str = Query(min_length=1)) -> dict:
-    record = _get_learning(record_id)
-    record.missed_opportunity = True
-    record.reasons.append(reason)
-    return _save_learning(record_id, record, "LEARNING_MISSED", {"reason": reason})
-
-
 @app.post("/api/v1/learning/{record_id}/outcome")
 def record_learning_outcome(record_id: int, request: LearningOutcomeRequest) -> dict:
-    record = _get_learning(record_id)
-    if request.outcome_r is None and request.entry_price is not None and request.exit_price is not None and request.stop_price is not None:
+    record = learning_store.get(record_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="learning record not found")
+    outcome_r = request.outcome_r
+    if outcome_r is None and request.entry_price is not None and request.exit_price is not None and request.stop_price is not None:
         risk_per_share = abs(request.entry_price - request.stop_price)
         if risk_per_share > 0:
-            request.outcome_r = (request.exit_price - request.entry_price) / risk_per_share
+            outcome_r = (request.exit_price - request.entry_price) / risk_per_share
     record.outcome = Outcome(
         symbol=record.symbol,
         evaluated_at=request.evaluated_at,
@@ -289,7 +300,7 @@ def record_learning_outcome(record_id: int, request: LearningOutcomeRequest) -> 
         exit_price=request.exit_price,
         stop_price=request.stop_price,
         target_price=request.target_price,
-        outcome_r=request.outcome_r,
+        outcome_r=outcome_r,
         max_adverse_excursion_r=request.max_adverse_excursion_r,
         max_favorable_excursion_r=request.max_favorable_excursion_r,
         result=request.result,
@@ -298,7 +309,7 @@ def record_learning_outcome(record_id: int, request: LearningOutcomeRequest) -> 
         record_id,
         record,
         "LEARNING_OUTCOME",
-        {"outcome_r": request.outcome_r, "result": request.result},
+        {"outcome_r": outcome_r, "result": request.result},
     )
 
 
