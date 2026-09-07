@@ -40,6 +40,30 @@ class AuditEventRow(Base):
     payload: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
 
 
+class LearningRecordRow(Base):
+    __tablename__ = "learning_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    discovered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    discovery_score: Mapped[float] = mapped_column(Float, nullable=False)
+    discovery_state: Mapped[str] = mapped_column(String(32), nullable=False)
+    trigger_confirmed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    trade_ready: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    traded: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    missed_opportunity: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    reasons: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    entry_price: Mapped[float | None] = mapped_column(Float)
+    exit_price: Mapped[float | None] = mapped_column(Float)
+    stop_price: Mapped[float | None] = mapped_column(Float)
+    target_price: Mapped[float | None] = mapped_column(Float)
+    outcome_r: Mapped[float | None] = mapped_column(Float)
+    max_adverse_excursion_r: Mapped[float | None] = mapped_column(Float)
+    max_favorable_excursion_r: Mapped[float | None] = mapped_column(Float)
+    result: Mapped[str] = mapped_column(String(32), nullable=False, default="UNRESOLVED")
+
+
 def database_url() -> str:
     return os.environ.get("DATABASE_URL", "sqlite:///tradegpt.db")
 
