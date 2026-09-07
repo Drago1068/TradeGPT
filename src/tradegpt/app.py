@@ -102,8 +102,91 @@ class ScanMissedRequest(BaseModel):
     detected_at: datetime | None = None
 
 
-def _scan_input(request: ScanRequest) -> ScanInput:
-    return ScanInput(
+def _learning_summary(records: list[LearningRecord]) -> dict[str, float | int]:
+    resolved = [record.outcome for record in records if record.outcome is not None and record.outcome.outcome_r is not None]
+    wins = [outcome for outcome in resolved if outcome.outcome_r is not None and outcome.outcome_r > 0]
+    losses = [outcome for outcome in resolved if outcome.outcome_r is not None and outcome.outcome_r < 0]
+    total_r = sum(outcome.outcome_r for outcome in resolved if outcome.outcome_r is not None)
+    return {
+        "discoveries": len(records),
+        "trade_ready": sum(record.trade_ready for record in records),
+        "traded": sum(record.traded for record in records),
+        "missed_opportunities": sum(record.missed_opportunity for record in records),
+        "resolved_outcomes": len(resolved),
+        "win_rate_pct": (len(wins) / len(resolved) * 100) if resolved else 0.0,
+        "average_r": (total_r / len(resolved)) if resolved else 0.0,
+        "total_r": total_r,
+        "average_win_r": (sum(outcome.outcome_r for outcome in wins if outcome.outcome_r is not None) / len(wins)) if wins else 0.0,
+        "average_loss_r": (sum(outcome.outcome_r for outcome in losses if outcome.outcome_r is not None) / len(losses)) if losses else 0.0,
+    }
+
+
+def _scan_run_payload(run: ScanRun) -> dict[str, object]:
+    return {
+        "scan_id": run.scan_id,
+        "scheduled_at": run.scheduled_at,
+        "started_at": run.started_at,
+        "completed_at": run.completed_at,
+        "status": run.status,
+        "error": run.error,
+    }
+
+
+def _learning_payload(record_id: int, record: LearningRecord) -> dict[str, object]:
+    return {
+        "id": record_id,
+        "symbol": record.symbol,
+        "discovered_at": record.discovered_at,
+        "discovery_score": record.discovery_score,
+        "discovery_state": record.discovery_state.value,
+        "trigger_confirmed": record.trigger_confirmed,
+        "trade_ready": record.trade_ready,
+        "traded": record.traded,
+        "missed_opportunity": record.missed_opportunity,
+        "reasons": record.reasons,
+        "outcome": None if record.outcome is None else {
+            "symbol": record.outcome.symbol,
+            "evaluated_at": record.outcome.evaluated_at,
+            "entry_price": record.outcome.entry_price,
+            "exit_price": record.outcome.exit_price,
+            "stop_price": record.outcome.stop_price,
+            "target_price": record.outcome.target_price,
+            "outcome_r": record.outcome.outcome_r,
+            "max_adverse_excursion_r": record.outcome.max_adverse_excursion_r,
+            "max_favorable_excursion_r": record.outcome.max_favorable_excursion_r,
+            "result": record.outcome.result,
+        },
+    }
+
+
+@app.get("/health")
+def health() -> dict[str, object]:
+    return health_payload()
+
+
+@app.get("/api/v1/candidates")
+def list_candidates() -> list[dict]:
+    return [candidate_payload(candidate) for candidate in store.list()]
+
+
+@app.get("/api/v1/candidates/{symbol}")
+def get_candidate(symbol: str) -> dict:
+    candidate = store.get(symbol.upper())
+    if candidate is None:
+        raise HTTPException(status_code=404, detail="candidate not found")
+    return candidate_payload(candidate)
+
+
+@app.delete("/api/v1/candidates/{symbol}", status_code=204)
+def delete_candidate(symbol: str) -> None:
+    if store.get(symbol.upper()) is None:
+        raise HTTPException(status_code=404, detail="candidate not found")
+    store.delete(symbol.upper())
+
+
+@app.post("/api/v1/scans/process")
+def process_scan(request: ScanRequest) -> dict:
+    scan_input = ScanInput(
         symbol=request.symbol,
         discovered_at=request.discovered_at,
         catalyst_score=request.catalyst_score,
@@ -119,133 +202,35 @@ def _scan_input(request: ScanRequest) -> ScanInput:
         adv_dollars=request.adv_dollars,
         trigger_confirmed=request.trigger_confirmed,
     )
-
-
-def _risk_payload(risk) -> dict | None:
-    if risk is None:
-        return None
-    return {
-        "approved": risk.approved,
-        "shares": risk.shares,
-        "risk_dollars": risk.risk_dollars,
-        "reward_risk": risk.reward_risk,
-        "reasons": list(risk.reasons),
-    }
-
-
-def _learning_payload(record_id: int, record: LearningRecord) -> dict:
-    outcome = record.outcome
-    return {
-        "id": record_id,
-        "symbol": record.symbol,
-        "discovered_at": record.discovered_at,
-        "discovery_score": record.discovery_score,
-        "discovery_state": record.discovery_state.value,
-        "trigger_confirmed": record.trigger_confirmed,
-        "trade_ready": record.trade_ready,
-        "traded": record.traded,
-        "missed_opportunity": record.missed_opportunity,
-        "reasons": list(record.reasons),
-        "outcome": None if outcome is None else {
-            "symbol": outcome.symbol,
-            "evaluated_at": outcome.evaluated_at,
-            "entry_price": outcome.entry_price,
-            "exit_price": outcome.exit_price,
-            "stop_price": outcome.stop_price,
-            "target_price": outcome.target_price,
-            "outcome_r": outcome.outcome_r,
-            "max_adverse_excursion_r": outcome.max_adverse_excursion_r,
-            "max_favorable_excursion_r": outcome.max_favorable_excursion_r,
-            "result": outcome.result,
-        },
-    }
-
-
-def _learning_summary(records: list[LearningRecord]) -> dict[str, float | int]:
-    rs = [float(r.outcome.outcome_r) for r in records if r.outcome is not None and r.outcome.outcome_r is not None]
-    wins = [v for v in rs if v > 0]
-    losses = [v for v in rs if v < 0]
-    return {
-        "discoveries": len(records),
-        "trade_ready": sum(r.trade_ready for r in records),
-        "traded": sum(r.traded for r in records),
-        "missed_opportunities": sum(r.missed_opportunity for r in records),
-        "resolved_outcomes": len(rs),
-        "win_rate_pct": round(len(wins) / len(rs) * 100, 2) if rs else 0.0,
-        "average_r": round(sum(rs) / len(rs), 3) if rs else 0.0,
-        "total_r": round(sum(rs), 3),
-        "average_win_r": round(sum(wins) / len(wins), 3) if wins else 0.0,
-        "average_loss_r": round(sum(losses) / len(losses), 3) if losses else 0.0,
-    }
-
-
-def _scan_run_payload(run: ScanRun) -> dict:
-    return {
-        "scan_id": run.scan_id,
-        "scheduled_at": run.scheduled_at,
-        "started_at": run.started_at,
-        "completed_at": run.completed_at,
-        "status": run.status,
-        "error": run.error,
-    }
-
-
-@app.get("/health")
-def health() -> dict[str, str]:
-    return health_payload()
-
-
-@app.get("/api/v1/candidates")
-def list_candidates(state: CandidateState | None = Query(default=None)) -> list[dict]:
-    return [candidate_payload(candidate) for candidate in store.list(state)]
-
-
-@app.get("/api/v1/candidates/{symbol}")
-def get_candidate(symbol: str) -> dict:
-    candidate = store.get(symbol.upper())
-    if candidate is None:
-        raise HTTPException(status_code=404, detail="candidate not found")
-    return candidate_payload(candidate)
-
-
-@app.post("/api/v1/candidates", status_code=201)
-def upsert_candidate(candidate: Candidate) -> dict:
-    return candidate_payload(store.upsert(candidate))
-
-
-@app.post("/api/v1/scans/process")
-def process_scan(request: ScanRequest) -> dict:
     ledger = AuditLedger()
-    result = ScanOrchestrator(lifecycle=CandidateLifecycle(ledger)).process(
-        _scan_input(request),
+    result = ScanOrchestrator().process(
+        scan_input,
         equity=request.equity,
         current_heat=request.current_heat,
         daily_loss=request.daily_loss,
         exceptional=request.exceptional,
+        ledger=ledger,
     )
     persisted = store.upsert(result.candidate)
     for event in ledger.all():
         audit_store.append(event)
-    return {
-        "candidate": candidate_payload(persisted),
-        "risk_decision": _risk_payload(result.risk_decision),
-        "execution_reasons": list(result.execution_reasons),
-    }
+    return {"candidate": candidate_payload(persisted), "risk": result.risk_decision, "execution_reasons": result.execution_reasons}
 
 
 @app.get("/api/v1/scheduler")
-def scheduler_status(now: datetime | None = Query(default=None)) -> dict:
+def scheduler_status(now: datetime | None = Query(default=None)) -> dict[str, object]:
     status = scheduler_service.status(now)
     return {
         "timezone": status.timezone,
-        "next_run": None if status.next_run_at is None else {"scan_id": status.next_scan_id, "scheduled_at": status.next_run_at},
+        "next_scan_id": status.next_scan_id,
+        "next_run_at": status.next_run_at,
         "scans": list(status.scans),
     }
 
 
 @app.get("/api/v1/scheduler/due")
-def scheduler_due(now: datetime | None = Query(default=None)) -> dict:
-    moment = now or datetime.now(timezone.utc)
+def scheduler_due(now: datetime | None = Query(default=None)) -> dict[str, object]:
+    moment = now if isinstance(now, datetime) else datetime.now(timezone.utc)
     return {
         "evaluated_at": moment,
         "due": [
@@ -363,18 +348,15 @@ def mark_learning_missed(record_id: int, reason: str = Query(min_length=1)) -> d
 
 
 @app.post("/api/v1/learning/{record_id}/forward-test")
-def forward_test_learning(record_id: int, request: ForwardTestRequest) -> dict:
-    try:
-        result = evaluate_learning_record(learning_store, record_id=record_id, entry_price=request.entry_price, stop_price=request.stop_price, target_price=request.target_price, prices=request.prices, evaluated_at=request.evaluated_at)
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+def forward_test(record_id: int, request: ForwardTestRequest) -> dict:
     record = learning_store.get(record_id)
-    assert record is not None
-    if result is not None:
-        audit_store.append(AuditEvent(event_type="LEARNING_FORWARD_TEST_RESOLVED", symbol=record.symbol, payload={"learning_record_id": record_id, "result": result.result, "outcome_r": result.outcome_r, "mae_r": result.max_adverse_excursion_r, "mfe_r": result.max_favorable_excursion_r}))
-    return {"resolved": result is not None, "result": None if result is None else result.result, "outcome_r": None if result is None else result.outcome_r, "max_adverse_excursion_r": None if result is None else result.max_adverse_excursion_r, "max_favorable_excursion_r": None if result is None else result.max_favorable_excursion_r, "learning": _learning_payload(record_id, record)}
+    if record is None:
+        raise HTTPException(status_code=404, detail="learning record not found")
+    try:
+        result = evaluate_learning_record(record, request.entry_price, request.stop_price, request.target_price, request.prices, request.evaluated_at)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return _save_learning(record_id, record, "LEARNING_FORWARD_TEST", {"result": result.result, "outcome_r": result.outcome_r})
 
 
 @app.post("/api/v1/learning/{record_id}/outcome")
@@ -399,11 +381,17 @@ def system_status() -> dict[str, object]:
     state_counts = {state.value: 0 for state in CandidateState}
     for candidate in candidates:
         state_counts[candidate.state.value] += 1
+    learning = _learning_summary(learning_store.list())
     return {
         "service": "tradegpt-v2",
         "version": "2.0.0-alpha.7",
         "candidates": len(candidates),
+        "candidate_count": len(candidates),
         "state_counts": state_counts,
-        "learning": _learning_summary(learning_store.list()),
+        "learning": learning,
+        "live_execution_enabled": False,
+        "options_enabled": False,
+        "zero_dte_enabled": False,
+        "broker_orders_enabled": False,
         "execution": {"broker_connected": False, "orders_enabled": False},
     }
