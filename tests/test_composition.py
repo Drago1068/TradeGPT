@@ -10,12 +10,12 @@ def test_default_composition_is_safe_and_initializes_database(tmp_path):
     database_url = f"sqlite:///{tmp_path / 'tradegpt.db'}"
     scheduler, worker = build_scheduler_worker(database_url=database_url, equity=2905)
 
-    due = worker.run_due(datetime(2026, 9, 7, 12, 0, tzinfo=timezone.utc))
+    due = worker.run_due(datetime(2026, 9, 8, 12, 0, tzinfo=timezone.utc))
 
     assert len(due) == 1
     assert due[0].scan_id == "daily-discovery"
     assert due[0].status == "NO_PLAN"
-    assert len(scheduler.status(datetime(2026, 9, 7, 12, 0, tzinfo=timezone.utc)).scans) == 3
+    assert len(scheduler.status(datetime(2026, 9, 8, 12, 0, tzinfo=timezone.utc)).scans) == 3
     tables = set(inspect(make_engine(database_url)).get_table_names())
     assert {"candidates", "audit_events", "learning_records"}.issubset(tables)
 
@@ -67,4 +67,4 @@ def test_configured_runtime_reports_data_and_plan_readiness(tmp_path):
 
 def test_empty_plan_provider_has_no_symbols():
     provider = EmptyScanPlanProvider()
-    assert provider.requests("daily-discovery", datetime(2026, 9, 7, 12, 0, tzinfo=timezone.utc)) == ()
+    assert provider.requests("daily-discovery", datetime(2026, 9, 8, 12, 0, tzinfo=timezone.utc)) == ()
