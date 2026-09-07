@@ -164,11 +164,14 @@ class PersistentLearningStore:
             return self._to_model(row) if row else None
 
     def list(self, symbol: str | None = None) -> list[LearningRecord]:
+        return [record for _, record in self.list_with_ids(symbol=symbol)]
+
+    def list_with_ids(self, symbol: str | None = None) -> list[tuple[int, LearningRecord]]:
         with self.session_factory() as session:
             stmt = select(LearningRecordRow).order_by(LearningRecordRow.id.asc())
             if symbol:
                 stmt = stmt.where(LearningRecordRow.symbol == symbol.upper())
-            return [self._to_model(row) for row in session.scalars(stmt)]
+            return [(row.id, self._to_model(row)) for row in session.scalars(stmt)]
 
     @staticmethod
     def _to_model(row: LearningRecordRow) -> LearningRecord:
