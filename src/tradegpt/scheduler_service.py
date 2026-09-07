@@ -29,8 +29,19 @@ class SchedulerService:
         self.audit_store = audit_store
         self.schedules = schedules or default_production_schedule()
 
+    @staticmethod
+    def _normalize_now(now: datetime | None) -> datetime:
+        """Return a valid timezone-aware clock value.
+
+        FastAPI dependency/default objects must never leak into the business
+        service when an endpoint helper is invoked internally.
+        """
+        if not isinstance(now, datetime) or now.tzinfo is None:
+            return datetime.now(timezone.utc)
+        return now
+
     def due(self, now: datetime | None = None) -> tuple[ScanSchedule, ...]:
-        moment = now or datetime.now(timezone.utc)
+        moment = self._normalize_now(now)
         events = self.audit_store.list()
         last_run: dict[str, datetime] = {}
         for event in events:
@@ -61,7 +72,7 @@ class SchedulerService:
         return parsed
 
     def status(self, now: datetime | None = None) -> SchedulerStatus:
-        moment = now or datetime.now(timezone.utc)
+        moment = self._normalize_now(now)
         upcoming = next_run(moment, self.schedules)
         events = self.audit_store.list()
         scans: list[dict[str, object]] = []
@@ -101,7 +112,7 @@ class SchedulerService:
 
     def scheduled_at(self, scan_id: str, now: datetime | None = None) -> datetime:
         self._require_scan(scan_id)
-        moment = now or datetime.now(timezone.utc)
+        moment = self._normalize_now(now)
         schedule = next(s for s in self.schedules if s.id == scan_id)
         return scheduled_datetime(moment, schedule)
 
