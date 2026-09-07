@@ -44,6 +44,7 @@ class TradeGPTRuntime:
     learning_store: PersistentLearningStore
     engine: object
     market_data_configured: bool
+    scan_plan_configured: bool
 
 
 def build_runtime(
@@ -63,9 +64,10 @@ def build_runtime(
 
     configured_provider = provider or ConfiguredMarketDataProvider()
     market_provider = configured_provider.as_provider()
+    configured_plan_provider = plan_provider or EmptyScanPlanProvider()
     qualification = QualificationService(market_provider)
     executor = ScanExecutorService(
-        plan_provider=plan_provider or EmptyScanPlanProvider(),
+        plan_provider=configured_plan_provider,
         qualification=qualification,
         candidate_store=candidate_store,
         learning_store=learning_store,
@@ -82,6 +84,7 @@ def build_runtime(
         learning_store=learning_store,
         engine=engine,
         market_data_configured=getattr(configured_provider, "fetcher", None) is not None,
+        scan_plan_configured=not isinstance(configured_plan_provider, EmptyScanPlanProvider),
     )
 
 
