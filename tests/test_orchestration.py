@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from tradegpt.ledger import AuditLedger
 from tradegpt.lifecycle import CandidateLifecycle
+from tradegpt.market_data import QuoteSnapshot
 from tradegpt.models import CandidateState
 from tradegpt.orchestration import ScanInput, ScanOrchestrator
 
@@ -88,3 +89,64 @@ def test_risk_failure_is_preserved_as_auditable_invalidation():
     assert result.risk_decision is not None
     assert "SHARE_LIQUIDITY_GATE" in result.risk_decision.reasons
     assert "DOLLAR_LIQUIDITY_GATE" in result.risk_decision.reasons
+
+
+def test_verified_snapshot_can_feed_scan_without_bypassing_data_boundary():
+    snapshot = QuoteSnapshot(
+        symbol="snap",
+        timestamp=NOW,
+        last_price=20.0,
+        vwap=19.8,
+        rvol=2.5,
+        relative_strength=91.0,
+        adv_shares=1_000_000,
+        adv_dollars=20_000_000,
+        verified=True,
+    )
+    result = ScanOrchestrator().process(
+        ScanInput.from_snapshot(
+            snapshot,
+            catalyst_score=90,
+            technical_score=95,
+            relative_strength_score=90,
+            liquidity_score=95,
+            entry_trigger=20.0,
+            stop_price=19.0,
+            target_price=22.0,
+            trigger_confirmed=True,
+        ),
+        equity=2905,
+    )
+    assert result.candidate.state is CandidateState.TRADE_READY
+    assert result.candidate.symbol == "SNAP"
+
+
+def test_unverified_snapshot_is_fail_closed_even_with_trigger():
+    snapshot = QuoteSnapshot(
+        symbol="gap",
+        timestamp=NOW,
+        last_price=None,
+        vwap=None,
+        rvol=None,
+        relative_strength=None,
+        adv_shares=None,
+        adv_dollars=None,
+        verified=False,
+        verification_reasons=("MISSING_QUOTE",),
+    )
+    result = ScanOrchestrator().process(
+        ScanInput.from_snapshot(
+            snapshot,
+            catalyst_score=100,
+            technical_score=100,
+            relative_strength_score=100,
+            liquidity_score=100,
+            entry_trigger=20.0,
+            stop_price=19.0,
+            target_price=22.0,
+            trigger_confirmed=True,
+        ),
+        equity=2905,
+    )
+    assert result.candidate.state is CandidateState.INVALIDATED
+    assert "DATA_NOT_VERIFIED" in result.execution_reasons
