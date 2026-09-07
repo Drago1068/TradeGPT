@@ -31,6 +31,13 @@ def scan_completed(store: PersistentAuditStore, run: ScanRun, completed_at: date
     return result
 
 
+def scan_no_plan(store: PersistentAuditStore, run: ScanRun, processed: int = 0, detected_at: datetime | None = None) -> ScanRun:
+    detected = detected_at or datetime.now(timezone.utc)
+    result = ScanRun(run.scan_id, run.scheduled_at, run.started_at, detected, "NO_PLAN")
+    store.append(AuditEvent(event_type="SCAN_NO_PLAN", symbol=None, payload={"scan_id": run.scan_id, "scheduled_at": run.scheduled_at.isoformat(), "detected_at": detected.isoformat(), "processed": processed, "reason": "scan plan provider returned no requests"}))
+    return result
+
+
 def scan_failed(store: PersistentAuditStore, run: ScanRun, error: str, failed_at: datetime | None = None) -> ScanRun:
     failed = failed_at or datetime.now(timezone.utc)
     result = ScanRun(run.scan_id, run.scheduled_at, run.started_at, failed, "FAILED", error)
