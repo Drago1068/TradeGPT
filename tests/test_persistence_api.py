@@ -132,6 +132,69 @@ def test_scan_processing_rejects_unverified_data():
     assert body["risk_decision"] is None
 
 
+def test_learning_api_persists_lifecycle_and_calculates_r():
+    client = TestClient(app)
+    now = "2026-09-07T13:00:00+00:00"
+    response = client.post(
+        "/api/v1/learning/discoveries",
+        json={
+            "symbol": "LEARNAPI",
+            "discovered_at": now,
+            "score": 94.0,
+            "state": "ARMED",
+        },
+    )
+    assert response.status_code == 201
+    record = response.json()
+    record_id = record["id"]
+    assert record["symbol"] == "LEARNAPI"
+    assert record["discovery_state"] == "ARMED"
+
+    assert client.post(f"/api/v1/learning/{record_id}/triggered").status_code == 200
+    assert client.post(f"/api/v1/learning/{record_id}/trade-ready").status_code == 200
+    assert client.post(f"/api/v1/learning/{record_id}/traded").status_code == 200
+    missed = client.post(f"/api/v1/learning/{record_id}/missed?reason=manual%20override")
+    assert missed.status_code == 200
+    assert missed.json()["missed_opportunity"] is True
+
+    outcome = client.post(
+        f"/api/v1/learning/{record_id}/outcome",
+        json={
+            "evaluated_at": now,
+            "entry_price": 20.0,
+            "exit_price": 22.0,
+            "stop_price": 19.0,
+            "target_price": 22.0,
+            "result": "WIN",
+        },
+    )
+    assert outcome.status_code == 200
+    body = outcome.json()
+    assert body["traded"] is True
+    assert body["outcome"]["outcome_r"] == 2.0
+    assert body["outcome"]["result"] == "WIN"
+
+    restored = client.get(f"/api/v1/learning/{record_id}")
+    assert restored.status_code == 200
+    assert restored.json()["id"] == record_id
+    assert restored.json()["outcome"]["outcome_r"] == 2.0
+
+    listed = client.get("/api/v1/learning?symbol=LEARNAPI")
+    assert listed.status_code == 200
+    assert listed.json()[0]["id"] == record_id
+
+    summary = client.get("/api/v1/learning/summary")
+    assert summary.status_code == 200
+    assert summary.json()["resolved_outcomes"] >= 1
+    assert summary.json()["total_r"] >= 2.0
+
+
+def test_learning_api_missing_record_returns_404():
+    client = TestClient(app)
+    response = client.get("/api/v1/learning/999999999")
+    assert response.status_code == 404
+
+
 def test_system_status_exposes_candidate_counts():
     client = TestClient(app)
     response = client.get("/api/v1/system")
@@ -144,3 +207,5 @@ def test_system_status_exposes_candidate_counts():
     assert body["broker_orders_enabled"] is False
     assert body["candidate_count"] >= 2
     assert "TRADE_READY" in body["state_counts"]
+    assert "learning" in body
+    assert "discoveries" in body["learning"]
