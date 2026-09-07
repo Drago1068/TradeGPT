@@ -44,7 +44,7 @@ def test_worker_executes_due_scan_once_and_audits_completion():
     scheduler = _service()
     executor = FakeExecutor()
     worker = SchedulerWorker(scheduler, executor)
-    now = datetime(2026, 9, 7, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 9, 8, 12, 0, tzinfo=timezone.utc)
     first = worker.run_due(now)
     second = worker.run_due(now)
     assert [r.status for r in first] == ["COMPLETED"]
@@ -58,7 +58,7 @@ def test_worker_failure_is_audited_and_not_retried_for_same_window():
     scheduler = _service()
     executor = FakeExecutor(RuntimeError("provider unavailable"))
     worker = SchedulerWorker(scheduler, executor)
-    now = datetime(2026, 9, 7, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 9, 8, 12, 0, tzinfo=timezone.utc)
     result = worker.run_due(now)
     again = worker.run_due(now)
     assert result[0].status == "FAILED"
@@ -72,7 +72,7 @@ def test_worker_requires_due_schedule():
     scheduler = _service()
     executor = FakeExecutor()
     worker = SchedulerWorker(scheduler, executor)
-    now = datetime(2026, 9, 7, 11, 59, tzinfo=timezone.utc)
+    now = datetime(2026, 9, 8, 11, 59, tzinfo=timezone.utc)
     assert worker.run_due(now) == ()
     assert executor.calls == []
     assert scheduler.audit_store.list() == []
@@ -82,7 +82,7 @@ def test_worker_executes_all_due_windows_after_restart():
     scheduler = _service()
     executor = FakeExecutor()
     worker = SchedulerWorker(scheduler, executor)
-    now = datetime(2026, 9, 7, 17, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 9, 8, 17, 0, tzinfo=timezone.utc)
     results = worker.run_due(now)
     assert [r.scan_id for r in results] == ["daily-discovery", "primary-qualification", "midday-discovery"]
     assert len(executor.calls) == 3
@@ -94,7 +94,7 @@ def test_worker_records_executor_failure_without_raising():
     executor = FakeExecutor(ValueError("bad provider payload"))
     worker = SchedulerWorker(scheduler, executor)
     schedule = next(s for s in scheduler.schedules if s.id == "daily-discovery")
-    scheduled = scheduler.scheduled_at(schedule.id, datetime(2026, 9, 7, 12, 0, tzinfo=timezone.utc))
+    scheduled = scheduler.scheduled_at(schedule.id, datetime(2026, 9, 8, 12, 0, tzinfo=timezone.utc))
     result = worker.run_one(schedule, scheduled)
     assert result.status == "FAILED"
     assert result.error == "ValueError: bad provider payload"
@@ -105,7 +105,7 @@ def test_worker_audits_no_plan_and_does_not_retry_same_window():
     scheduler = _service()
     executor = NoPlanExecutor()
     worker = SchedulerWorker(scheduler, executor)
-    now = datetime(2026, 9, 7, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 9, 8, 12, 0, tzinfo=timezone.utc)
 
     result = worker.run_due(now)
     again = worker.run_due(now)
