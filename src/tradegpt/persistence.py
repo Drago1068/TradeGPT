@@ -5,7 +5,8 @@ from datetime import datetime
 
 from sqlalchemy import select
 
-from .db import CandidateRow, make_session_factory
+from .db import AuditEventRow, CandidateRow, make_session_factory
+from .ledger import AuditEvent
 from .models import Candidate, CandidateState
 
 
@@ -71,4 +72,40 @@ class PersistentCandidateStore:
             last_price=row.last_price,
             data_verified=row.data_verified,
             rejection_reasons=reasons,
+        )
+
+
+class PersistentAuditStore:
+    """Durable append-only audit-event repository."""
+
+    def __init__(self, session_factory=None) -> None:
+        self.session_factory = session_factory or make_session_factory()
+
+    def append(self, event: AuditEvent) -> AuditEvent:
+        with self.session_factory() as session:
+            row = AuditEventRow(
+                timestamp=event.timestamp,
+                event_type=event.event_type,
+                symbol=event.symbol.upper(),
+                payload=json.dumps({"state": event.state, **event.payload}),
+            )
+            session.add(row)
+            session.commit()
+        return event
+
+    def for_symbol(self, symbol: str) -> list[AuditEvent]:
+        with self.session_factory() as session:
+            stmt = select(AuditEventRow).where(AuditEventRow.symbol == symbol.upper()).order_by(AuditEventRow.id)
+            return [self._to_model(row) for row in session.scalars(stmt)]
+
+    @staticmethod
+    def _to_model(row: AuditEventRow) -> AuditEvent:
+        payload = json.loads(row.payload or "{}")
+        state = payload.pop("state", None)
+        return AuditEvent(
+            event_type=row.event_type,
+            symbol=row.symbol,
+            timestamp=row.timestamp,
+            state=state,
+            payload=payload,
         )
