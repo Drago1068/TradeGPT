@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import calendar
 from dataclasses import dataclass
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 EASTERN = ZoneInfo("America/New_York")
@@ -10,6 +11,75 @@ PRODUCTION_SCAN_IDS = (
     "primary-qualification",
     "midday-discovery",
 )
+
+
+def _observed_fixed_holiday(year: int, month: int, day: int) -> date:
+    holiday = date(year, month, day)
+    if holiday.weekday() == 5:
+        return holiday - timedelta(days=1)
+    if holiday.weekday() == 6:
+        return holiday + timedelta(days=1)
+    return holiday
+
+
+def _nth_weekday(year: int, month: int, weekday: int, n: int) -> date:
+    first = date(year, month, 1)
+    offset = (weekday - first.weekday()) % 7
+    return first + timedelta(days=offset + 7 * (n - 1))
+
+
+def _last_weekday(year: int, month: int, weekday: int) -> date:
+    last_day = calendar.monthrange(year, month)[1]
+    last = date(year, month, last_day)
+    return last - timedelta(days=(last.weekday() - weekday) % 7)
+
+
+def _easter_sunday(year: int) -> date:
+    """Gregorian computus; used to derive NYSE Good Friday."""
+    a = year % 19
+    b = year // 100
+    c = year % 100
+    d = b // 4
+    e = b % 4
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i = c // 4
+    k = c % 4
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    month = (h + l - 7 * m + 114) // 31
+    day = ((h + l - 7 * m + 114) % 31) + 1
+    return date(year, month, day)
+
+
+def nyse_holidays(year: int) -> frozenset[date]:
+    """Return full-day NYSE holidays for the supplied Gregorian year.
+
+    This intentionally models full-day closures only. The production scans all
+    occur well before the normal NYSE early-close window, so early-close rules
+    do not affect the three-scan contract.
+    """
+    new_year = _observed_fixed_holiday(year, 1, 1)
+    good_friday = _easter_sunday(year) - timedelta(days=2)
+    return frozenset(
+        {
+            new_year,
+            _nth_weekday(year, 1, 0, 3),   # Martin Luther King Jr. Day
+            _nth_weekday(year, 2, 0, 3),   # Presidents Day
+            good_friday,
+            _last_weekday(year, 5, 0),     # Memorial Day
+            _observed_fixed_holiday(year, 6, 19),  # Juneteenth
+            _observed_fixed_holiday(year, 7, 4),   # Independence Day
+            _nth_weekday(year, 9, 0, 1),   # Labor Day
+            _nth_weekday(year, 11, 3, 4),  # Thanksgiving
+            _observed_fixed_holiday(year, 12, 25), # Christmas
+        }
+    )
+
+
+def is_market_holiday(day: date) -> bool:
+    return day in nyse_holidays(day.year)
 
 
 @dataclass(frozen=True)
@@ -50,7 +120,8 @@ def validate_production_schedule(schedules: list[ScanSchedule]) -> tuple[ScanSch
 
 
 def is_scan_day(moment: datetime) -> bool:
-    return moment.astimezone(EASTERN).weekday() < 5
+    local_day = moment.astimezone(EASTERN).date()
+    return local_day.weekday() < 5 and not is_market_holiday(local_day)
 
 
 def scheduled_datetime(moment: datetime, schedule: ScanSchedule) -> datetime:
@@ -71,7 +142,7 @@ def due_scans(
     """
     validate_production_schedule(list(schedules))
     local_now = now.astimezone(EASTERN)
-    if local_now.weekday() >= 5:
+    if not is_scan_day(local_now):
         return ()
     last_run = last_run or {}
     due: list[ScanSchedule] = []
@@ -95,7 +166,7 @@ def next_run(
     local_now = now.astimezone(EASTERN)
     cursor = local_now
     for _ in range(8):
-        if cursor.weekday() < 5:
+        if is_scan_day(cursor):
             for schedule in ordered:
                 if not schedule.enabled:
                     continue
