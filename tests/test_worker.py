@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from tradegpt.db import init_db, make_engine, make_session_factory
 from tradegpt.persistence import PersistentAuditStore
 from tradegpt.scheduler_service import SchedulerService
+from tradegpt.scan_executor import ScanExecutionResult
 from tradegpt.worker import SchedulerWorker
 
 
@@ -15,6 +16,22 @@ class FakeExecutor:
         self.calls.append((scan_id, scheduled_at))
         if self.error:
             raise self.error
+
+
+class NoPlanExecutor:
+    def __init__(self):
+        self.calls = []
+
+    def execute(self, scan_id: str, scheduled_at: datetime) -> ScanExecutionResult:
+        self.calls.append((scan_id, scheduled_at))
+        return ScanExecutionResult(
+            scan_id=scan_id,
+            scheduled_at=scheduled_at,
+            processed=0,
+            trade_ready=0,
+            rejected_or_invalidated=0,
+            status="NO_PLAN",
+        )
 
 
 def _service() -> SchedulerService:
@@ -82,3 +99,18 @@ def test_worker_records_executor_failure_without_raising():
     assert result.status == "FAILED"
     assert result.error == "ValueError: bad provider payload"
     assert scheduler.audit_store.list()[-1].event_type == "SCAN_FAILED"
+
+
+def test_worker_audits_no_plan_and_does_not_retry_same_window():
+    scheduler = _service()
+    executor = NoPlanExecutor()
+    worker = SchedulerWorker(scheduler, executor)
+    now = datetime(2026, 9, 7, 12, 0, tzinfo=timezone.utc)
+
+    result = worker.run_due(now)
+    again = worker.run_due(now)
+
+    assert result[0].status == "NO_PLAN"
+    assert again == ()
+    assert len(executor.calls) == 1
+    assert [e.event_type for e in scheduler.audit_store.list()] == ["SCAN_STARTED", "SCAN_NO_PLAN"]
