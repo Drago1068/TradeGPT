@@ -5,7 +5,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable, Sequence
 
-from .db import init_db, make_engine, make_session_factory
+from .db import make_engine, make_session_factory
+from .migrations import migrate
 from .persistence import PersistentAuditStore, PersistentCandidateStore, PersistentLearningStore
 from .providers.configured import ConfiguredMarketDataProvider
 from .qualification import QualificationRequest, QualificationService
@@ -50,14 +51,9 @@ def build_runtime(
     provider=None,
     equity: float | None = None,
 ) -> TradeGPTRuntime:
-    """Build the complete production runtime with one shared persistence graph.
-
-    The default graph is deliberately safe: no discovery plan and no broker
-    connectivity. Supplying a plan provider adds discovery without changing the
-    worker or qualification boundaries.
-    """
+    """Build the complete production runtime with one shared persistence graph."""
     engine = make_engine(database_url)
-    init_db(engine)
+    migrate(engine)
     session_factory = make_session_factory(engine)
     audit_store = PersistentAuditStore(session_factory)
     candidate_store = PersistentCandidateStore(session_factory)
