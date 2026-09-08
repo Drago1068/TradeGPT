@@ -48,6 +48,15 @@ def test_provider_to_validation_to_trade_ready_is_end_to_end():
     assert result.risk_decision.shares == 29
 
 
+def test_provider_snapshot_symbol_mismatch_fails_closed():
+    service = QualificationService(StaticProvider(verified_snapshot("OTHER")))
+    result = service.qualify(request(symbol="TEST"), equity=2905, now=NOW)
+    assert result.candidate.state is CandidateState.INVALIDATED
+    assert result.candidate.symbol == "TEST"
+    assert result.candidate.data_verified is False
+    assert "DATA_NOT_VERIFIED" in result.execution_reasons
+
+
 def test_stale_provider_data_cannot_reach_trade_ready_even_with_perfect_scores():
     stale = verified_snapshot(timestamp=datetime(2026, 9, 6, 12, 0, tzinfo=timezone.utc))
     service = QualificationService(StaticProvider(stale))
