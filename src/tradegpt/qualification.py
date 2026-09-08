@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from .market_data import MarketDataProvider, QuoteSnapshot, validate_snapshot
+from .market_data import MarketDataProvider, QuoteSnapshot, unverified_snapshot, validate_snapshot
 from .orchestration import OrchestrationResult, ScanInput, ScanOrchestrator
 
 
@@ -26,7 +26,8 @@ class QualificationService:
     """Provider -> validation -> orchestration boundary.
 
     Strategy code receives only validated snapshot-derived inputs. Provider failures,
-    stale data, and incomplete snapshots remain fail-closed as DATA_NOT_VERIFIED.
+    stale data, incomplete snapshots, and symbol-identity mismatches remain fail-closed
+    as DATA_NOT_VERIFIED.
     """
 
     def __init__(self, provider: MarketDataProvider, *, orchestrator: ScanOrchestrator | None = None) -> None:
@@ -44,8 +45,23 @@ class QualificationService:
         exceptional: bool = False,
         max_age_seconds: float = 30.0,
     ) -> OrchestrationResult:
-        raw = self.provider.snapshot(request.symbol)
-        snapshot = validate_snapshot(raw, now=now, max_age_seconds=max_age_seconds)
+        requested_symbol = request.symbol.strip().upper()
+        raw = self.provider.snapshot(requested_symbol)
+        returned_symbol = raw.symbol.strip().upper()
+
+        # Never allow a provider response for one security to be attributed to
+        # another requested security. Treat the response as unverified and keep
+        # the requested symbol on the candidate for auditability.
+        if returned_symbol != requested_symbol:
+            snapshot = unverified_snapshot(
+                requested_symbol,
+                now,
+                "SYMBOL_MISMATCH",
+                source=raw.source,
+            )
+        else:
+            snapshot = validate_snapshot(raw, now=now, max_age_seconds=max_age_seconds)
+
         scan = ScanInput.from_snapshot(
             snapshot,
             catalyst_score=request.catalyst_score,
