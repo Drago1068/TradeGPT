@@ -120,6 +120,8 @@ class ScanExecutorService:
                     score=candidate.score,
                     trade_ready=record.trade_ready,
                     reasons=record.reasons,
+                    discovery_source=request.discovery_source,
+                    discovery_evidence=list(request.discovery_evidence),
                 )
             )
             processed += 1
