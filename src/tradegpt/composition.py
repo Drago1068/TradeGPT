@@ -9,7 +9,7 @@ from .db import make_engine, make_session_factory
 from .discovery import EmptyProductionDiscoveryPlan, ProductionDiscoveryPlan
 from .migrations import migrate
 from .persistence import PersistentAuditStore, PersistentCandidateStore, PersistentLearningStore
-from .providers.configured import ConfiguredMarketDataProvider
+from .providers.factory import build_market_data_provider
 from .qualification import QualificationRequest, QualificationService
 from .scan_executor import ScanExecutorService, ScanPlanProvider
 from .scheduler_service import SchedulerService
@@ -60,7 +60,7 @@ def build_runtime(
     candidate_store = PersistentCandidateStore(session_factory)
     learning_store = PersistentLearningStore(session_factory)
 
-    configured_provider = provider or ConfiguredMarketDataProvider()
+    configured_provider = provider or build_market_data_provider()
     market_provider = configured_provider.as_provider()
     configured_plan_provider = plan_provider or EmptyProductionDiscoveryPlan()
     qualification = QualificationService(market_provider)
