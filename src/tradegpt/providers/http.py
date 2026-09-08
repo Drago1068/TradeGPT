@@ -21,11 +21,7 @@ class HttpSnapshotConfig:
 
 
 class HttpSnapshotProvider:
-    """Minimal authenticated HTTP adapter with a strict provider boundary.
-
-    The adapter expects JSON fields matching QuoteSnapshot. It does not contain
-    vendor-specific strategy logic and never manufactures market values.
-    """
+    """Minimal authenticated HTTP adapter with a strict provider boundary."""
 
     def __init__(self, config: HttpSnapshotConfig, *, environ: dict[str, str] | None = None,
                  opener: Callable = urlopen) -> None:
