@@ -42,7 +42,7 @@ def test_production_plan_deduplicates_symbols_and_preserves_first_seen_order():
 
     requests = plan.requests("daily-discovery", NOW)
 
-    assert [item.symbol for item in requests] == ["abc", "XYZ"]
+    assert [item.symbol for item in requests] == ["ABC", "XYZ"]
 
 
 def test_production_plan_exposes_provenance_without_granting_execution_authority():
