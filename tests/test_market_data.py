@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from math import inf, nan
 
 import pytest
 
@@ -105,3 +106,46 @@ def test_unverified_snapshot_preserves_source() -> None:
     assert snapshot.source == "alpaca"
     assert snapshot.verified is False
     assert snapshot.last_price is None
+
+
+@pytest.mark.parametrize("value", [nan, inf, -inf])
+def test_non_finite_market_values_fail_closed(value: float) -> None:
+    now = datetime.now(timezone.utc)
+    result = validate_snapshot(valid_snapshot(timestamp=now, rvol=value), now=now)
+    assert result.verified is False
+    assert "NON_FINITE_RVOL" in result.verification_reasons
+
+
+def test_negative_volume_metrics_fail_closed() -> None:
+    now = datetime.now(timezone.utc)
+    result = validate_snapshot(valid_snapshot(timestamp=now, adv_shares=-1), now=now)
+    assert result.verified is False
+    assert "INVALID_ADV_SHARES" in result.verification_reasons
+
+
+def test_non_positive_vwap_fails_closed() -> None:
+    now = datetime.now(timezone.utc)
+    result = validate_snapshot(valid_snapshot(timestamp=now, vwap=0), now=now)
+    assert result.verified is False
+    assert "INVALID_VWAP" in result.verification_reasons
+
+
+def test_negative_rvol_fails_closed() -> None:
+    now = datetime.now(timezone.utc)
+    result = validate_snapshot(valid_snapshot(timestamp=now, rvol=-0.1), now=now)
+    assert result.verified is False
+    assert "INVALID_RVOL" in result.verification_reasons
+
+
+def test_invalid_latency_fails_closed() -> None:
+    now = datetime.now(timezone.utc)
+    result = validate_snapshot(valid_snapshot(timestamp=now, latency_ms=-1), now=now)
+    assert result.verified is False
+    assert "INVALID_LATENCY_MS" in result.verification_reasons
+
+
+def test_blank_symbol_fails_closed() -> None:
+    now = datetime.now(timezone.utc)
+    result = validate_snapshot(valid_snapshot(timestamp=now, symbol="  "), now=now)
+    assert result.verified is False
+    assert "MISSING_SYMBOL" in result.verification_reasons
