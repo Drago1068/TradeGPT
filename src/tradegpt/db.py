@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, create_engine
+from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, UniqueConstraint, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 
@@ -28,6 +28,31 @@ class CandidateRow(Base):
     last_price: Mapped[float | None] = mapped_column(Float)
     data_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     rejection_reasons: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+
+class ScanObservationRow(Base):
+    __tablename__ = "scan_observations"
+    __table_args__ = (UniqueConstraint("scan_id", "scheduled_at", "symbol", name="uq_scan_observation"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    scan_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    evaluated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    symbol: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    state: Mapped[str] = mapped_column(String(32), nullable=False)
+    score: Mapped[float] = mapped_column(Float, nullable=False)
+    catalyst_score: Mapped[float] = mapped_column(Float, nullable=False)
+    technical_score: Mapped[float] = mapped_column(Float, nullable=False)
+    relative_strength_score: Mapped[float] = mapped_column(Float, nullable=False)
+    liquidity_score: Mapped[float] = mapped_column(Float, nullable=False)
+    entry_trigger: Mapped[float | None] = mapped_column(Float)
+    stop_price: Mapped[float | None] = mapped_column(Float)
+    target_price: Mapped[float | None] = mapped_column(Float)
+    last_price: Mapped[float | None] = mapped_column(Float)
+    data_verified: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    rejection_reasons: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    discovery_source: Mapped[str] = mapped_column(String(128), nullable=False, default="UNKNOWN")
+    discovery_evidence: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
 
 
 class AuditEventRow(Base):
