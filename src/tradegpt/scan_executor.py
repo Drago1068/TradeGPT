@@ -148,11 +148,12 @@ class ScanExecutorService:
     def _candidate_event(symbol: str, state: str, **payload: object):
         from .ledger import AuditEvent
 
-        scheduled_at = str(payload.pop("scheduled_at"))
+        evaluated_at = str(payload.pop("evaluated_at"))
+        payload.pop("scheduled_at", None)
         return AuditEvent(
             event_type="CANDIDATE_QUALIFIED",
             symbol=symbol,
-            timestamp=datetime.fromisoformat(scheduled_at),
+            timestamp=datetime.fromisoformat(evaluated_at),
             state=state,
             payload=payload,
         )
