@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 from typing import Callable, Mapping, Protocol, Sequence
 
 from .learning import LearningRecord
+from .observation import ScanObservation
+from .observation_persistence import PersistentScanObservationStore
 from .persistence import PersistentAuditStore, PersistentCandidateStore, PersistentLearningStore
 from .qualification import QualificationRequest, QualificationService
 
@@ -52,6 +54,7 @@ class ScanExecutorService:
         candidate_store: PersistentCandidateStore,
         learning_store: PersistentLearningStore,
         audit_store: PersistentAuditStore,
+        observation_store: PersistentScanObservationStore | None = None,
         equity: float,
         current_heat: float = 0.0,
         daily_loss: float = 0.0,
@@ -64,6 +67,7 @@ class ScanExecutorService:
         self.candidate_store = candidate_store
         self.learning_store = learning_store
         self.audit_store = audit_store
+        self.observation_store = observation_store
         self.equity = equity
         self.current_heat = current_heat
         self.daily_loss = daily_loss
@@ -80,14 +84,7 @@ class ScanExecutorService:
 
         if not requests:
             self.audit_store.append(self._no_plan_event(scan_id, scheduled_at, execution_time))
-            return ScanExecutionResult(
-                scan_id=scan_id,
-                scheduled_at=scheduled_at,
-                processed=0,
-                trade_ready=0,
-                rejected_or_invalidated=0,
-                status="NO_PLAN",
-            )
+            return ScanExecutionResult(scan_id, scheduled_at, 0, 0, 0, "NO_PLAN")
 
         for request in requests:
             result = self.qualification.qualify(
@@ -110,6 +107,17 @@ class ScanExecutorService:
                 reasons=list(result.execution_reasons) + list(candidate.rejection_reasons),
             )
             self.learning_store.create(record)
+            if self.observation_store is not None:
+                self.observation_store.create(
+                    ScanObservation(
+                        scan_id=scan_id,
+                        scheduled_at=scheduled_at,
+                        evaluated_at=execution_time,
+                        candidate=candidate,
+                        discovery_source=request.discovery_source,
+                        discovery_evidence=tuple(request.discovery_evidence),
+                    )
+                )
             self.audit_store.append(
                 self._candidate_event(
                     candidate.symbol,
@@ -130,13 +138,7 @@ class ScanExecutorService:
             else:
                 rejected_or_invalidated += 1
 
-        return ScanExecutionResult(
-            scan_id=scan_id,
-            scheduled_at=scheduled_at,
-            processed=processed,
-            trade_ready=trade_ready,
-            rejected_or_invalidated=rejected_or_invalidated,
-        )
+        return ScanExecutionResult(scan_id, scheduled_at, processed, trade_ready, rejected_or_invalidated)
 
     def _requests(self, scan_id: str, scheduled_at: datetime) -> Sequence[QualificationRequest]:
         provider = self.plan_provider
