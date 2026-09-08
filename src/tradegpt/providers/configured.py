@@ -8,11 +8,7 @@ from .base import ProviderUnavailable, fetch_verified_snapshot
 
 
 class ConfiguredMarketDataProvider:
-    """Configuration boundary for real providers without embedding credentials.
-
-    The adapter intentionally has no network implementation yet. Production wiring
-    supplies a callable through ``fetcher``; missing configuration fails closed.
-    """
+    """Configuration boundary for real providers without embedding credentials."""
 
     def __init__(self, fetcher=None, *, provider_name: str | None = None) -> None:
         self.provider_name = provider_name or os.getenv("MARKET_DATA_PROVIDER", "none")
