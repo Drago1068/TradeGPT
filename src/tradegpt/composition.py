@@ -8,6 +8,7 @@ from typing import Callable, Sequence
 from .db import make_engine, make_session_factory
 from .discovery import EmptyProductionDiscoveryPlan, ProductionDiscoveryPlan
 from .migrations import migrate
+from .observation_persistence import PersistentScanObservationStore
 from .persistence import PersistentAuditStore, PersistentCandidateStore, PersistentLearningStore
 from .providers.factory import build_market_data_provider
 from .qualification import QualificationRequest, QualificationService
@@ -40,6 +41,7 @@ class TradeGPTRuntime:
     candidate_store: PersistentCandidateStore
     audit_store: PersistentAuditStore
     learning_store: PersistentLearningStore
+    observation_store: PersistentScanObservationStore
     engine: object
     market_data_configured: bool
     scan_plan_configured: bool
@@ -59,6 +61,7 @@ def build_runtime(
     audit_store = PersistentAuditStore(session_factory)
     candidate_store = PersistentCandidateStore(session_factory)
     learning_store = PersistentLearningStore(session_factory)
+    observation_store = PersistentScanObservationStore(session_factory)
 
     configured_provider = provider or build_market_data_provider()
     market_provider = configured_provider.as_provider()
@@ -70,6 +73,7 @@ def build_runtime(
         candidate_store=candidate_store,
         learning_store=learning_store,
         audit_store=audit_store,
+        observation_store=observation_store,
         equity=equity if equity is not None else _equity_from_environment(),
     )
     scheduler = SchedulerService(audit_store)
@@ -80,6 +84,7 @@ def build_runtime(
         candidate_store=candidate_store,
         audit_store=audit_store,
         learning_store=learning_store,
+        observation_store=observation_store,
         engine=engine,
         market_data_configured=bool(getattr(configured_provider, "is_configured", False)),
         scan_plan_configured=not isinstance(configured_plan_provider, EmptyProductionDiscoveryPlan),
