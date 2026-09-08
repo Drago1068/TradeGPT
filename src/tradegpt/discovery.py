@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Mapping, Sequence
 
@@ -39,7 +39,10 @@ class ProductionDiscoveryPlan:
             raise ValueError(f"unknown production scan id: {scan_id}")
 
         # Preserve first-seen ordering while preventing duplicate symbols from
-        # one scan from consuming multiple qualification slots.
+        # one scan from consuming multiple qualification slots. The scheduled
+        # timestamp is accepted deliberately so future providers can make
+        # time-aware discovery decisions without changing the protocol.
+        _ = scheduled_at
         seen: set[str] = set()
         selected: list[QualificationRequest] = []
         for item in self._candidates.get(scan_id, ()):
@@ -47,7 +50,7 @@ class ProductionDiscoveryPlan:
             if not symbol or symbol in seen:
                 continue
             seen.add(symbol)
-            selected.append(item.request)
+            selected.append(replace(item.request, symbol=symbol))
         return tuple(selected)
 
     def provenance(self, scan_id: str) -> tuple[DiscoveryCandidate, ...]:
