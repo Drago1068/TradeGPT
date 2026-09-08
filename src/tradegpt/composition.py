@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Callable, Sequence
 
 from .db import make_engine, make_session_factory
+from .discovery import EmptyProductionDiscoveryPlan, ProductionDiscoveryPlan
 from .migrations import migrate
 from .persistence import PersistentAuditStore, PersistentCandidateStore, PersistentLearningStore
 from .providers.configured import ConfiguredMarketDataProvider
@@ -26,11 +27,8 @@ def _equity_from_environment() -> float:
     return equity
 
 
-class EmptyScanPlanProvider:
-    """Safe production default until a real discovery engine is configured."""
-
-    def requests(self, scan_id: str, scheduled_at: datetime) -> Sequence[QualificationRequest]:
-        return ()
+class EmptyScanPlanProvider(EmptyProductionDiscoveryPlan):
+    """Backward-compatible alias for the safe empty production discovery plan."""
 
 
 @dataclass(frozen=True)
@@ -64,7 +62,7 @@ def build_runtime(
 
     configured_provider = provider or ConfiguredMarketDataProvider()
     market_provider = configured_provider.as_provider()
-    configured_plan_provider = plan_provider or EmptyScanPlanProvider()
+    configured_plan_provider = plan_provider or EmptyProductionDiscoveryPlan()
     qualification = QualificationService(market_provider)
     executor = ScanExecutorService(
         plan_provider=configured_plan_provider,
@@ -84,7 +82,7 @@ def build_runtime(
         learning_store=learning_store,
         engine=engine,
         market_data_configured=bool(getattr(configured_provider, "is_configured", False)),
-        scan_plan_configured=not isinstance(configured_plan_provider, EmptyScanPlanProvider),
+        scan_plan_configured=not isinstance(configured_plan_provider, EmptyProductionDiscoveryPlan),
     )
 
 
