@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 from tradegpt.db import init_db, make_engine, make_session_factory
 from tradegpt.market_data import QuoteSnapshot
-from tradegpt.models import CandidateState
+from tradegpt.models import Candidate, CandidateState
 from tradegpt.observation import ScanObservation
 from tradegpt.observation_persistence import PersistentScanObservationStore
 from tradegpt.persistence import PersistentCandidateStore, PersistentAuditStore, PersistentLearningStore
@@ -70,8 +70,8 @@ def test_scan_observation_is_append_only_across_scans():
 
 
 def test_same_scan_retry_is_idempotent_at_observation_key():
-    engine, _, _, _, observations = _candidate_store_graph()
-    candidate = __import__("tradegpt.models", fromlist=["Candidate"]).Candidate(
+    _, _, _, _, observations = _candidate_store_graph()
+    candidate = Candidate(
         symbol="TEST", discovered_at=NOW, state=CandidateState.TRADE_READY,
         score=95, catalyst_score=100, technical_score=95,
         relative_strength_score=90, liquidity_score=100,
@@ -79,10 +79,7 @@ def test_same_scan_retry_is_idempotent_at_observation_key():
         last_price=20, data_verified=True, rejection_reasons=[],
     )
     observation = ScanObservation("daily-sniper-discovery", NOW, NOW, candidate, "QWEN", ("catalyst",))
-    observations.create(observation)
-    try:
-        observations.create(observation)
-    except Exception as exc:
-        assert "uq_scan_observation" in str(exc)
-    else:
-        raise AssertionError("duplicate scan observation must be rejected")
+    first_id = observations.create(observation)
+    second_id = observations.create(observation)
+    assert second_id == first_id
+    assert len(observations.list(scan_id="daily-sniper-discovery", symbol="TEST")) == 1
