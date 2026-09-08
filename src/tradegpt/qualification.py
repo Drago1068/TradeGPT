@@ -18,6 +18,8 @@ class QualificationRequest:
     stop_price: float | None
     target_price: float | None
     trigger_confirmed: bool = False
+    discovery_source: str = "UNKNOWN"
+    discovery_evidence: tuple[str, ...] = ()
 
 
 class QualificationService:
