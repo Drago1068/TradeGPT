@@ -2,6 +2,7 @@
 
 from .base import MarketDataProviderError, ProviderUnavailable
 from .configured import ConfiguredMarketDataProvider
+from .factory import build_market_data_provider
 from .http import HttpSnapshotConfig, HttpSnapshotProvider
 
 __all__ = [
@@ -10,4 +11,5 @@ __all__ = [
     "HttpSnapshotProvider",
     "MarketDataProviderError",
     "ProviderUnavailable",
+    "build_market_data_provider",
 ]
