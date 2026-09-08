@@ -369,14 +369,35 @@ def mark_learning_missed(record_id: int, reason: str = Query(min_length=1)) -> d
 
 @app.post("/api/v1/learning/{record_id}/forward-test")
 def forward_test(record_id: int, request: ForwardTestRequest) -> dict:
+    try:
+        result = evaluate_learning_record(
+            learning_store,
+            record_id=record_id,
+            entry_price=request.entry_price,
+            stop_price=request.stop_price,
+            target_price=request.target_price,
+            prices=request.prices,
+            evaluated_at=request.evaluated_at,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
     record = learning_store.get(record_id)
     if record is None:
         raise HTTPException(status_code=404, detail="learning record not found")
-    try:
-        result = evaluate_learning_record(record, request.entry_price, request.stop_price, request.target_price, request.prices, request.evaluated_at)
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return _save_learning(record_id, record, "LEARNING_FORWARD_TEST", {"result": result.result, "outcome_r": result.outcome_r})
+    if result is None:
+        return _learning_payload(record_id, record)
+
+    audit_store.append(
+        AuditEvent(
+            event_type="LEARNING_FORWARD_TEST",
+            symbol=record.symbol,
+            payload={"learning_record_id": record_id, "result": result.result, "outcome_r": result.outcome_r},
+        )
+    )
+    return _learning_payload(record_id, record)
 
 
 @app.post("/api/v1/learning/{record_id}/outcome")
