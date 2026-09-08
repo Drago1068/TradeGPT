@@ -1,12 +1,21 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from .db import ScanObservationRow
-from .models import Candidate
+from .models import Candidate, CandidateState
 from .observation import ScanObservation
+
+
+def _utc(value: datetime) -> datetime:
+    """Normalize persisted timestamps to timezone-aware UTC values."""
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 class PersistentScanObservationStore:
@@ -16,13 +25,28 @@ class PersistentScanObservationStore:
         self.session_factory = session_factory
 
     def create(self, observation: ScanObservation) -> int:
+        """Persist an observation, returning the existing ID on an exact retry."""
         candidate = observation.candidate
+        scheduled_at = _utc(observation.scheduled_at)
+        evaluated_at = _utc(observation.evaluated_at)
+        symbol = candidate.symbol.upper()
+
         with self.session_factory() as session:
+            existing = session.scalar(
+                select(ScanObservationRow.id).where(
+                    ScanObservationRow.scan_id == observation.scan_id,
+                    ScanObservationRow.scheduled_at == scheduled_at,
+                    ScanObservationRow.symbol == symbol,
+                )
+            )
+            if existing is not None:
+                return int(existing)
+
             row = ScanObservationRow(
                 scan_id=observation.scan_id,
-                scheduled_at=observation.scheduled_at,
-                evaluated_at=observation.evaluated_at,
-                symbol=candidate.symbol.upper(),
+                scheduled_at=scheduled_at,
+                evaluated_at=evaluated_at,
+                symbol=symbol,
                 state=candidate.state.value,
                 score=candidate.score,
                 catalyst_score=candidate.catalyst_score,
@@ -39,8 +63,24 @@ class PersistentScanObservationStore:
                 discovery_evidence=json.dumps(list(observation.discovery_evidence)),
             )
             session.add(row)
-            session.commit()
-            return row.id
+            try:
+                session.commit()
+                return int(row.id)
+            except IntegrityError:
+                # A concurrent worker may have inserted the same logical
+                # observation after our pre-check. Treat that race as an
+                # idempotent retry rather than failing the scan.
+                session.rollback()
+                existing = session.scalar(
+                    select(ScanObservationRow.id).where(
+                        ScanObservationRow.scan_id == observation.scan_id,
+                        ScanObservationRow.scheduled_at == scheduled_at,
+                        ScanObservationRow.symbol == symbol,
+                    )
+                )
+                if existing is None:
+                    raise
+                return int(existing)
 
     def list(self, scan_id: str | None = None, symbol: str | None = None) -> list[ScanObservation]:
         with self.session_factory() as session:
@@ -55,8 +95,8 @@ class PersistentScanObservationStore:
     def _to_model(row: ScanObservationRow) -> ScanObservation:
         candidate = Candidate(
             symbol=row.symbol,
-            discovered_at=row.evaluated_at,
-            state=row.state,
+            discovered_at=_utc(row.evaluated_at),
+            state=CandidateState(row.state),
             score=row.score,
             catalyst_score=row.catalyst_score,
             technical_score=row.technical_score,
@@ -69,12 +109,10 @@ class PersistentScanObservationStore:
             data_verified=row.data_verified,
             rejection_reasons=json.loads(row.rejection_reasons or "[]"),
         )
-        from .models import CandidateState
-        candidate.state = CandidateState(row.state)
         return ScanObservation(
             scan_id=row.scan_id,
-            scheduled_at=row.scheduled_at,
-            evaluated_at=row.evaluated_at,
+            scheduled_at=_utc(row.scheduled_at),
+            evaluated_at=_utc(row.evaluated_at),
             candidate=candidate,
             discovery_source=row.discovery_source,
             discovery_evidence=tuple(json.loads(row.discovery_evidence or "[]")),
