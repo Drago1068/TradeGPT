@@ -132,23 +132,24 @@ def test_scan_processing_rejects_unverified_data():
     assert body["risk_decision"] is None
 
 
-def test_learning_api_persists_lifecycle_and_calculates_r():
-    client = TestClient(app)
-    now = "2026-09-07T13:00:00+00:00"
+def _create_learning_record(client: TestClient, symbol: str) -> int:
     response = client.post(
         "/api/v1/learning/discoveries",
         json={
-            "symbol": "LEARNAPI",
-            "discovered_at": now,
+            "symbol": symbol,
+            "discovered_at": "2026-09-07T13:00:00+00:00",
             "score": 94.0,
             "state": "ARMED",
         },
     )
     assert response.status_code == 201
-    record = response.json()
-    record_id = record["id"]
-    assert record["symbol"] == "LEARNAPI"
-    assert record["discovery_state"] == "ARMED"
+    return response.json()["id"]
+
+
+def test_learning_api_persists_lifecycle_and_calculates_r():
+    client = TestClient(app)
+    now = "2026-09-07T13:00:00+00:00"
+    record_id = _create_learning_record(client, "LEARNAPI")
 
     assert client.post(f"/api/v1/learning/{record_id}/triggered").status_code == 200
     assert client.post(f"/api/v1/learning/{record_id}/trade-ready").status_code == 200
@@ -187,6 +188,62 @@ def test_learning_api_persists_lifecycle_and_calculates_r():
     assert summary.status_code == 200
     assert summary.json()["resolved_outcomes"] >= 1
     assert summary.json()["total_r"] >= 2.0
+
+
+def test_forward_test_api_resolves_target_and_records_mfe_mae():
+    client = TestClient(app)
+    record_id = _create_learning_record(client, "FORWARDAPI")
+
+    response = client.post(
+        f"/api/v1/learning/{record_id}/forward-test",
+        json={
+            "entry_price": 20.0,
+            "stop_price": 19.0,
+            "target_price": 22.0,
+            "prices": [19.75, 20.5, 21.25, 22.0],
+            "evaluated_at": "2026-09-07T13:01:00+00:00",
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["outcome"]["result"] == "TARGET"
+    assert body["outcome"]["outcome_r"] == 2.0
+    assert body["outcome"]["max_adverse_excursion_r"] == -0.25
+    assert body["outcome"]["max_favorable_excursion_r"] == 2.0
+
+
+def test_forward_test_api_leaves_open_path_unresolved():
+    client = TestClient(app)
+    record_id = _create_learning_record(client, "FORWARDOPEN")
+
+    response = client.post(
+        f"/api/v1/learning/{record_id}/forward-test",
+        json={
+            "entry_price": 20.0,
+            "stop_price": 19.0,
+            "target_price": 22.0,
+            "prices": [19.75, 20.5, 21.25],
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["outcome"] is None
+
+
+def test_forward_test_api_rejects_invalid_trade_geometry():
+    client = TestClient(app)
+    record_id = _create_learning_record(client, "FORWARDINVALID")
+
+    response = client.post(
+        f"/api/v1/learning/{record_id}/forward-test",
+        json={
+            "entry_price": 20.0,
+            "stop_price": 20.5,
+            "target_price": 22.0,
+            "prices": [21.0, 22.0],
+        },
+    )
+    assert response.status_code == 422
 
 
 def test_learning_api_missing_record_returns_404():
