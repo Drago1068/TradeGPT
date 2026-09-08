@@ -2,5 +2,12 @@
 
 from .base import MarketDataProviderError, ProviderUnavailable
 from .configured import ConfiguredMarketDataProvider
+from .http import HttpSnapshotConfig, HttpSnapshotProvider
 
-__all__ = ["ConfiguredMarketDataProvider", "MarketDataProviderError", "ProviderUnavailable"]
+__all__ = [
+    "ConfiguredMarketDataProvider",
+    "HttpSnapshotConfig",
+    "HttpSnapshotProvider",
+    "MarketDataProviderError",
+    "ProviderUnavailable",
+]
