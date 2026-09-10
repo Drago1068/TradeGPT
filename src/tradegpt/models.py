@@ -46,6 +46,7 @@ class Candidate:
     target_price: Optional[float] = None
     last_price: Optional[float] = None
     data_verified: bool = False
+    binary_event_risk: bool = False
     rejection_reasons: list[str] = field(default_factory=list)
 
 
