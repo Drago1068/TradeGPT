@@ -18,7 +18,7 @@ from .worker import SchedulerWorker
 
 
 def _equity_from_environment() -> float:
-    raw = os.getenv("TRADEGPT_EQUITY", "2905")
+    raw = os.getenv("TRADEGPT_EQUITY", "2888")
     try:
         equity = float(raw)
     except ValueError as exc:
