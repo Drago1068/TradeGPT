@@ -19,6 +19,35 @@ universe:
   min_adv_shares: 500000
   min_adv_dollars: 5000000
 
+sniper:
+  max_ranked_candidates: 3
+  a_plus_min: 85.0
+  hard_floors:
+    catalyst_quality: 70.0
+    price_structure: 70.0
+    trade_location: 70.0
+    liquidity: 60.0
+    volume_quality: 50.0
+    reward_risk: 2.0
+  weights:
+    catalyst_quality: 0.20
+    abnormal_volume: 0.10
+    relative_strength: 0.10
+    sector_relative_strength: 0.05
+    price_structure: 0.15
+    trade_location: 0.15
+    liquidity: 0.10
+    regime_fit: 0.05
+    pre_breakout: 0.05
+    gap_quality: 0.025
+    volume_quality: 0.025
+  rules:
+    require_verified_catalyst: true
+    require_move_explained_by_catalyst: true
+    penalize_extended_candidates: true
+    never_pad_top_three: true
+    require_min_reward_risk: 2.0
+
 scans:
   - id: daily-discovery
     label: Daily Sniper Discovery
