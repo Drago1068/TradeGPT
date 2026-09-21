@@ -7,7 +7,7 @@ from .models import RiskDecision
 
 @dataclass(frozen=True)
 class RiskPolicy:
-    max_trade_risk_pct: float = 0.01
+    max_trade_risk_pct: float = 0.02
     exceptional_trade_risk_pct: float = 0.02
     max_portfolio_heat_pct: float = 0.05
     daily_loss_limit_pct: float = 0.03
