@@ -6,6 +6,7 @@ TradeGPT V2 is a deterministic, risk-first market discovery and decision-support
 
 - Stock-first; options and 0DTE remain disabled during the initial production phase.
 - Discovery is broad; execution is ruthless.
+- Ranking must compare leaders, emerging leaders, and second-wave/sympathy candidates before final selection.
 - No fabricated or silently substituted market data.
 - No automatic broker orders.
 - No stop widening or averaging down.
@@ -75,8 +76,10 @@ The application image uses a multi-stage build, non-root runtime user, read-only
 Production schedule is limited to:
 
 - 08:00 ET — Daily Sniper Discovery
-- 10:15 ET — V2 Qualification
-- 12:30 ET — Midday Second-Wave Discovery
+- 10:15 ET — Daily Trade Qualification
+- 15:00 ET — Late Day Discovery (replaces the former 12:30 ET scan)
+
+The late-day scan explicitly evaluates afternoon compression, VWAP reclaim/hold, late-day breakout/retest, dollar-volume acceleration, closing strength, and next-day swing quality. It also compares Leader → Emerging Leader → Second-Wave/Sympathy relationships before final ranking.
 
 The scheduler is timezone-aware, DST-aware, weekday-aware, and suppresses scans on configured NYSE full-day holidays.
 
