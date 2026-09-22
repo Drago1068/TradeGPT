@@ -25,7 +25,7 @@ def test_default_schedule_matches_three_scan_contract() -> None:
     assert tuple(schedule.time_et for schedule in schedules) == (
         time(8, 0),
         time(10, 15),
-        time(12, 30),
+        time(15, 0),
     )
 
 
