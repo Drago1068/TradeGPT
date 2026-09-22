@@ -20,6 +20,8 @@ class QualificationRequest:
     trigger_confirmed: bool = False
     discovery_source: str = "UNKNOWN"
     discovery_evidence: tuple[str, ...] = ()
+    underlying_score: float | None = None
+    execution_score: float | None = None
 
 
 class QualificationService:
