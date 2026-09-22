@@ -106,7 +106,7 @@ def test_service_rejects_unknown_scan():
 
 def test_service_can_compute_scheduled_time():
     service = SchedulerService(FakeAuditStore())
-    assert service.scheduled_at("midday-discovery", et(2026, 9, 8, 7, 0)) == et(2026, 9, 8, 12, 30)
+    assert service.scheduled_at("midday-discovery", et(2026, 9, 8, 7, 0)) == et(2026, 9, 8, 15, 0)
 
 
 def test_service_accepts_scan_run_for_completion():
