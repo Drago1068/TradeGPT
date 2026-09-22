@@ -117,6 +117,8 @@ class ScanOrchestrator:
             target_price=scan.target_price,
             last_price=scan.last_price,
             data_verified=scan.data_verified,
+            underlying_score=scan.underlying_score if scan.underlying_score is not None else score,
+            execution_score=scan.execution_score if scan.execution_score is not None else 0.0,
         )
 
         if score < self.score_policy.discovery_min:
@@ -127,11 +129,15 @@ class ScanOrchestrator:
         if score >= self.score_policy.watch_min:
             self.lifecycle.move(candidate, CandidateState.WATCH, reason="SCORE_MEETS_WATCH")
         if score >= self.score_policy.armed_min:
-            self.lifecycle.move(candidate, CandidateState.ARMED, reason="SCORE_MEETS_ARMED")
+            # A strong underlying without a confirmed live trigger is explicitly
+            # represented as NEAR_TRIGGER instead of looking trade-ready.
+            self.lifecycle.move(candidate, CandidateState.NEAR_TRIGGER, reason="UNDERLYING_MEETS_NEAR_TRIGGER")
+            if not scan.trigger_confirmed:
+                return OrchestrationResult(candidate, None, ("TRIGGER_NOT_CONFIRMED",))
 
         # A+ is intentionally NOT a state transition. It is only an execution gate.
         if not scan.trigger_confirmed:
-            return OrchestrationResult(candidate, None, ())
+            return OrchestrationResult(candidate, None, ("TRIGGER_NOT_CONFIRMED",))
 
         if candidate.state != CandidateState.ARMED:
             reason = "TRIGGER_REQUIRES_ARMED"
@@ -140,6 +146,7 @@ class ScanOrchestrator:
 
         self.lifecycle.move(candidate, CandidateState.TRIGGERED, reason="TRIGGER_CONFIRMED")
         executable, reasons = execution_gate(candidate, policy=self.score_policy)
+        candidate.execution_score = 100.0 if executable else max(0.0, 100.0 - 15.0 * len(reasons))
         if not executable:
             candidate.rejection_reasons.extend(reasons)
             self.lifecycle.move(candidate, CandidateState.INVALIDATED, reason="EXECUTION_GATE_FAILED")
