@@ -35,3 +35,25 @@ def test_missed_scan_records_schedule_identity() -> None:
     event = store.list()[-1]
     assert event.event_type == "SCAN_MISSED"
     assert event.payload["scan_id"] == "midday-discovery"
+
+
+def test_scan_started_records_lateness_and_timeliness():
+    store = PersistentAuditStore()
+    scheduled = datetime(2026, 9, 7, 12, 0, tzinfo=timezone.utc)
+    started = datetime(2026, 9, 7, 12, 31, tzinfo=timezone.utc)
+    scan_started(store, "daily-discovery", scheduled, started)
+    payload = store.list()[-1].payload
+    assert payload["lateness_seconds"] == 1860.0
+    assert payload["timeliness"] == "MISSED_RECOVERY"
+
+
+def test_scan_completed_preserves_actual_execution_timestamp():
+    store = PersistentAuditStore()
+    scheduled = datetime(2026, 9, 7, 12, 0, tzinfo=timezone.utc)
+    started = datetime(2026, 9, 7, 12, 1, tzinfo=timezone.utc)
+    completed_at = datetime(2026, 9, 7, 12, 2, tzinfo=timezone.utc)
+    run = scan_started(store, "daily-discovery", scheduled, started)
+    scan_completed(store, run, completed_at)
+    payload = store.list()[-1].payload
+    assert payload["started_at"] == started.isoformat()
+    assert payload["actual_execution_at"] == completed_at.isoformat()
