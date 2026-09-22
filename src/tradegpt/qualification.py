@@ -74,6 +74,8 @@ class QualificationService:
             stop_price=request.stop_price,
             target_price=request.target_price,
             trigger_confirmed=request.trigger_confirmed,
+            underlying_score=request.underlying_score,
+            execution_score=request.execution_score,
         )
         return self.orchestrator.process(
             scan,
