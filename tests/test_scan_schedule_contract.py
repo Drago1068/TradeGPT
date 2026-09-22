@@ -6,9 +6,9 @@ from tradegpt.scheduler_service import SchedulerService
 def test_production_scan_schedule_contract():
     schedule = SchedulerService.production_schedule()
     assert [item.scan_id for item in schedule] == [
-        "daily-sniper-discovery",
-        "v2-confirmation",
-        "midday-monitor",
+        "daily-discovery",
+        "primary-qualification",
+        "midday-discovery",
     ]
     assert [(item.hour, item.minute) for item in schedule] == [(8, 0), (10, 15), (12, 30)]
     assert all(item.timezone == "America/New_York" for item in schedule)
