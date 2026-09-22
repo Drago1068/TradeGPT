@@ -51,8 +51,9 @@ def test_watch_band_is_not_promoted_to_armed():
 
 def test_armed_waits_for_explicit_trigger():
     result = ScanOrchestrator().process(scan(trigger_confirmed=False), equity=2905)
-    assert result.candidate.state is CandidateState.ARMED
+    assert result.candidate.state is CandidateState.NEAR_TRIGGER
     assert result.risk_decision is None
+    assert result.execution_reasons == ("TRIGGER_NOT_CONFIRMED",)
 
 
 def test_verified_a_plus_trigger_becomes_trade_ready_with_position_size():
