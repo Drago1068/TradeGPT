@@ -1,7 +1,7 @@
 {
   "version": "3.0.0",
   "account_assumption": {
-    "starting_equity": 2000
+    "starting_equity": 2905
   },
   "risk": {
     "max_account_risk_per_trade_pct": 1.0,
