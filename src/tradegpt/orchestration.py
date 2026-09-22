@@ -131,8 +131,10 @@ class ScanOrchestrator:
         if score >= self.score_policy.armed_min:
             # A strong underlying without a confirmed live trigger is explicitly
             # represented as NEAR_TRIGGER instead of looking trade-ready.
-            self.lifecycle.move(candidate, CandidateState.NEAR_TRIGGER, reason="UNDERLYING_MEETS_NEAR_TRIGGER")
-            if not scan.trigger_confirmed:
+            if scan.trigger_confirmed:
+                self.lifecycle.move(candidate, CandidateState.ARMED, reason="UNDERLYING_MEETS_ARMED")
+            else:
+                self.lifecycle.move(candidate, CandidateState.NEAR_TRIGGER, reason="UNDERLYING_MEETS_NEAR_TRIGGER")
                 return OrchestrationResult(candidate, None, ("TRIGGER_NOT_CONFIRMED",))
 
         # A+ is intentionally NOT a state transition. It is only an execution gate.
