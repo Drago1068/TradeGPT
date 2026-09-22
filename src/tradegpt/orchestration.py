@@ -27,6 +27,8 @@ class ScanInput:
     adv_shares: int | None
     adv_dollars: float | None
     trigger_confirmed: bool = False
+    underlying_score: float | None = None
+    execution_score: float | None = None
 
     @classmethod
     def from_snapshot(
@@ -58,6 +60,8 @@ class ScanInput:
             adv_shares=int(snapshot.adv_shares) if snapshot.adv_shares is not None else None,
             adv_dollars=snapshot.adv_dollars,
             trigger_confirmed=trigger_confirmed,
+            underlying_score=underlying_score,
+            execution_score=execution_score,
         )
 
 
