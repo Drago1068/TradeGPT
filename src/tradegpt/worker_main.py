@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def _poll_interval_seconds() -> float:
-    raw = os.getenv("TRADEGPT_WORKER_POLL_SECONDS", "15")
+    raw = os.getenv("TRADEGPT_WORKER_POLL_SECONDS", "5")
     try:
         value = float(raw)
     except ValueError as exc:
