@@ -190,6 +190,10 @@ def default_production_schedule() -> tuple[ScanSchedule, ...]:
         [
             ScanSchedule.from_time_string("daily-discovery", "Daily Sniper Discovery", "08:00"),
             ScanSchedule.from_time_string("primary-qualification", "V2 Qualification", "10:15"),
-            ScanSchedule.from_time_string("midday-discovery", "Midday Second-Wave Discovery", "12:30"),
+            ScanSchedule.from_time_string(
+                "midday-discovery",
+                "Late Day Breakout / Next-Day Swing Discovery",
+                "15:00",
+            ),
         ]
     )
