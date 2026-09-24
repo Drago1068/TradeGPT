@@ -88,7 +88,7 @@ def test_next_run_crosses_dst_end_without_fixed_offset() -> None:
     schedules = default_production_schedule()
     schedule, run_at = next_run(et(2026, 10, 30, 16, 0), schedules)
     assert schedule.id == "daily-discovery"
-    assert run_at == et(2026, 11, 2, 15, 0)
+    assert run_at == et(2026, 11, 2, 8, 0)
     assert run_at.utcoffset().total_seconds() == -5 * 3600
 
 
