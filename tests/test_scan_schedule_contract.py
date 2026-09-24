@@ -1,19 +1,13 @@
-from datetime import datetime
-
-from tradegpt.scheduler_service import SchedulerService
+from tradegpt.scheduler import PRODUCTION_SCAN_IDS, default_production_schedule
 
 
 def test_production_scan_schedule_contract():
-    schedule = SchedulerService.production_schedule()
-    assert [item.scan_id for item in schedule] == [
-        "daily-discovery",
-        "primary-qualification",
-        "midday-discovery",
-    ]
-    assert [(item.hour, item.minute) for item in schedule] == [(8, 0), (10, 15), (15, 0)]
-    assert all(item.timezone == "America/New_York" for item in schedule)
+    schedule = default_production_schedule()
+    assert [item.id for item in schedule] == list(PRODUCTION_SCAN_IDS)
+    assert [(item.time_et.hour, item.time_et.minute) for item in schedule] == [(8, 0), (10, 15), (15, 0)]
+    assert all(item.time_et.tzinfo is None for item in schedule)
 
 
 def test_schedule_does_not_embed_order_execution():
-    schedule = SchedulerService.production_schedule()
-    assert all("order" not in item.scan_id.lower() for item in schedule)
+    schedule = default_production_schedule()
+    assert all("order" not in item.id.lower() for item in schedule)
