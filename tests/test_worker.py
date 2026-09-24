@@ -82,7 +82,7 @@ def test_worker_executes_all_due_windows_after_restart():
     scheduler = _service()
     executor = FakeExecutor()
     worker = SchedulerWorker(scheduler, executor)
-    now = datetime(2026, 9, 8, 17, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 9, 8, 20, 0, tzinfo=timezone.utc)
     results = worker.run_due(now)
     assert [r.scan_id for r in results] == ["daily-discovery", "primary-qualification", "midday-discovery"]
     assert len(executor.calls) == 3

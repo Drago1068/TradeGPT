@@ -126,6 +126,8 @@ class ScanExecutorService:
                     scheduled_at=scheduled_at.isoformat(),
                     evaluated_at=execution_time.isoformat(),
                     score=candidate.score,
+                    underlying_score=candidate.underlying_score,
+                    execution_score=candidate.execution_score,
                     trade_ready=record.trade_ready,
                     reasons=record.reasons,
                     discovery_source=request.discovery_source,

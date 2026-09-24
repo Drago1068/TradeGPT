@@ -43,3 +43,12 @@ A+ is a qualification band, not permission to enter. Missing live data remains D
 ## Measurement loop
 
 Each candidate should be retained for later outcome measurement: discovery timestamp/price, trigger, stop, targets, MFE, MAE, trigger occurrence/time, T1/T2/T3 attainment, stop outcome, realized R, and failure reason. The 10:15 and 12:30 scans should update the same candidate lineage where applicable. This enables forward evaluation rather than subjective tuning.
+
+
+## Operational execution SLA
+
+The primary 08:00 ET discovery run is time-sensitive. The scheduler must preserve the intended ET schedule, recover an overdue scan when the worker becomes available, and audit actual execution separately from scheduled time. Each run records scheduled_at, started_at/actual_execution_at, lateness_seconds, and timeliness. Runs more than 10 minutes late are LATE; runs more than 30 minutes late are MISSED_RECOVERY. A late recovery is never represented as an on-time scan.
+
+## Explicit readiness separation
+
+Discovery and execution are separate dimensions. Candidates may move through NEAR_TRIGGER and TRADE_READY_UNDERLYING before option validation. OPTION_VALIDATION_PENDING and EXECUTION_BLOCKED explicitly represent missing or failed execution data. UNDERLYING_SCORE and EXECUTION_SCORE are stored independently so a strong stock setup cannot masquerade as an executable option trade.

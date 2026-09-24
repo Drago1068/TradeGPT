@@ -57,8 +57,8 @@ def test_service_failure_counts_as_run_for_duplicate_prevention():
 def test_service_missed_scan_counts_as_run():
     store = FakeAuditStore()
     service = SchedulerService(store)
-    now = et(2026, 9, 8, 12, 40)
-    service.missed("midday-discovery", et(2026, 9, 8, 12, 30), now)
+    now = et(2026, 9, 8, 15, 40)
+    service.missed("midday-discovery", et(2026, 9, 8, 15, 0), now)
     assert "midday-discovery" not in [s.id for s in service.due(now)]
 
 
@@ -106,7 +106,7 @@ def test_service_rejects_unknown_scan():
 
 def test_service_can_compute_scheduled_time():
     service = SchedulerService(FakeAuditStore())
-    assert service.scheduled_at("midday-discovery", et(2026, 9, 8, 7, 0)) == et(2026, 9, 8, 12, 30)
+    assert service.scheduled_at("midday-discovery", et(2026, 9, 8, 7, 0)) == et(2026, 9, 8, 15, 0)
 
 
 def test_service_accepts_scan_run_for_completion():

@@ -9,6 +9,10 @@ from typing import Optional
 class CandidateState(str, Enum):
     DISCOVERED = "DISCOVERED"
     WATCH = "WATCH"
+    NEAR_TRIGGER = "NEAR_TRIGGER"
+    TRADE_READY_UNDERLYING = "TRADE_READY_UNDERLYING"
+    OPTION_VALIDATION_PENDING = "OPTION_VALIDATION_PENDING"
+    EXECUTION_BLOCKED = "EXECUTION_BLOCKED"
     ARMED = "ARMED"
     TRIGGERED = "TRIGGERED"
     TRADE_READY = "TRADE_READY"
@@ -45,6 +49,8 @@ class Candidate:
     stop_price: Optional[float] = None
     target_price: Optional[float] = None
     last_price: Optional[float] = None
+    underlying_score: float = 0.0
+    execution_score: float = 0.0
     data_verified: bool = False
     rejection_reasons: list[str] = field(default_factory=list)
 

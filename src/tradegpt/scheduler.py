@@ -12,6 +12,12 @@ PRODUCTION_SCAN_IDS = (
     "midday-discovery",
 )
 
+# Operational SLA for the production scheduler. A scan remains eligible for
+# recovery after its target time; lateness is audited rather than silently
+# treated as normal execution.
+SCHEDULE_GRACE_MINUTES = 10
+SCHEDULE_MISSED_MINUTES = 30
+
 
 def _observed_fixed_holiday(year: int, month: int, day: int) -> date:
     holiday = date(year, month, day)
@@ -184,6 +190,10 @@ def default_production_schedule() -> tuple[ScanSchedule, ...]:
         [
             ScanSchedule.from_time_string("daily-discovery", "Daily Sniper Discovery", "08:00"),
             ScanSchedule.from_time_string("primary-qualification", "V2 Qualification", "10:15"),
-            ScanSchedule.from_time_string("midday-discovery", "Midday Second-Wave Discovery", "12:30"),
+            ScanSchedule.from_time_string(
+                "midday-discovery",
+                "Late Day Breakout / Next-Day Swing Discovery",
+                "15:00",
+            ),
         ]
     )
