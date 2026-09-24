@@ -65,8 +65,8 @@ def test_nyse_holiday_has_no_due_scans() -> None:
 def test_nyse_holiday_next_run_skips_labor_day() -> None:
     schedules = default_production_schedule()
     schedule, run_at = next_run(et(2026, 9, 4, 13, 0), schedules)
-    assert schedule.id == "daily-discovery"
-    assert run_at == et(2026, 9, 8, 8, 0)
+    assert schedule.id == "midday-discovery"
+    assert run_at == et(2026, 9, 8, 15, 0)
 
 
 def test_nyse_good_friday_is_closed() -> None:
@@ -79,16 +79,16 @@ def test_nyse_good_friday_is_closed() -> None:
 def test_next_run_crosses_dst_start_without_fixed_offset() -> None:
     schedules = default_production_schedule()
     schedule, run_at = next_run(et(2026, 3, 6, 13, 0), schedules)
-    assert schedule.id == "daily-discovery"
-    assert run_at == et(2026, 3, 9, 8, 0)
+    assert schedule.id == "midday-discovery"
+    assert run_at == et(2026, 3, 9, 15, 0)
     assert run_at.utcoffset().total_seconds() == -4 * 3600
 
 
 def test_next_run_crosses_dst_end_without_fixed_offset() -> None:
     schedules = default_production_schedule()
     schedule, run_at = next_run(et(2026, 10, 30, 13, 0), schedules)
-    assert schedule.id == "daily-discovery"
-    assert run_at == et(2026, 11, 2, 8, 0)
+    assert schedule.id == "midday-discovery"
+    assert run_at == et(2026, 11, 2, 15, 0)
     assert run_at.utcoffset().total_seconds() == -5 * 3600
 
 
