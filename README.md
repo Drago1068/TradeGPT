@@ -76,7 +76,7 @@ Production schedule is limited to:
 
 - 08:00 ET — Daily Sniper Discovery
 - 10:15 ET — V2 Qualification
-- 12:30 ET — Midday Second-Wave Discovery
+- 15:00 ET — Late-Day Breakout / Next-Day Swing Discovery
 
 The scheduler is timezone-aware, DST-aware, weekday-aware, and suppresses scans on configured NYSE full-day holidays.
 
