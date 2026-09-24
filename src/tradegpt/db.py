@@ -94,7 +94,10 @@ def database_url() -> str:
 
 
 def make_engine(url: str | None = None):
-    return create_engine(url or database_url(), pool_pre_ping=True)
+    url = url or database_url()
+    if url.startswith("postgresql://"):
+        url = "postgresql+psycopg://" + url[len("postgresql://"):]
+    return create_engine(url, pool_pre_ping=True)
 
 
 def init_db(engine=None) -> None:
