@@ -43,6 +43,8 @@ class ScanInput:
         stop_price: float | None,
         target_price: float | None,
         trigger_confirmed: bool = False,
+        underlying_score: float | None = None,
+        execution_score: float | None = None,
     ) -> "ScanInput":
         """Build strategy input from one provider snapshot without hiding data gaps."""
         return cls(
@@ -129,15 +131,12 @@ class ScanOrchestrator:
         if score >= self.score_policy.watch_min:
             self.lifecycle.move(candidate, CandidateState.WATCH, reason="SCORE_MEETS_WATCH")
         if score >= self.score_policy.armed_min:
-            # A strong underlying without a confirmed live trigger is explicitly
-            # represented as NEAR_TRIGGER instead of looking trade-ready.
             if scan.trigger_confirmed:
                 self.lifecycle.move(candidate, CandidateState.ARMED, reason="UNDERLYING_MEETS_ARMED")
             else:
                 self.lifecycle.move(candidate, CandidateState.NEAR_TRIGGER, reason="UNDERLYING_MEETS_NEAR_TRIGGER")
                 return OrchestrationResult(candidate, None, ("TRIGGER_NOT_CONFIRMED",))
 
-        # A+ is intentionally NOT a state transition. It is only an execution gate.
         if not scan.trigger_confirmed:
             return OrchestrationResult(candidate, None, ("TRIGGER_NOT_CONFIRMED",))
 
